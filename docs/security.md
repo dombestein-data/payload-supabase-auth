@@ -86,6 +86,11 @@ multi-process deployments. Codes and digests should not be logged. No endpoint
 or cookie is issued yet, so CSRF, cookie attributes, redirect validation, and
 session fixation remain responsibilities of the future HTTP layer.
 
+The PostgreSQL store uses a hidden collection with normal create, read, update,
+and delete access denied. Internal operations use access override. Consumption
+is a single conditional `DELETE … RETURNING` statement, so only one concurrent
+caller can receive a record.
+
 ## Provisioning and claim synchronization
 
 Both lifecycle features are disabled by default. Provisioning requires a

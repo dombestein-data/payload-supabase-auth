@@ -20,6 +20,7 @@ The package currently provides:
 - `consumeExchangeCode` to consume a matching record exactly once.
 - `ExchangeCodeStore` as the contract for persistent storage.
 - `createMemoryExchangeCodeStore` for tests and single-process development.
+- `createPayloadExchangeCodeStore` for shared PostgreSQL persistence.
 
 Codes expire after 60 seconds by default. Only their digests are persisted.
 Records contain the Payload auth collection, Payload user ID, and expiration.
@@ -62,16 +63,18 @@ A production `ExchangeCodeStore` must:
 - Prevent two concurrent consumers from succeeding.
 - Support cleanup of expired records.
 
-The included memory store does not meet the shared-storage requirement.
+The plugin adds a hidden `supabase-exchange-codes` collection by default. Its
+digest is unique, expiration is indexed, and all normal collection access is
+denied. The PostgreSQL store consumes with conditional `DELETE … RETURNING` and
+removes expired records with `cleanupExpired()`.
 
 ## Remaining implementation
 
-1. Add a PostgreSQL/Payload-backed exchange store.
-2. Add the authenticated callback or code-creation endpoint.
-3. Add the exchange endpoint.
-4. Create a Payload session and secure cookie.
-5. Add logout and session revocation.
-6. Integrate the flow into the Payload admin login UI.
+1. Add the authenticated callback or code-creation endpoint.
+2. Add the exchange endpoint.
+3. Create a Payload session and secure cookie.
+4. Add logout and session revocation.
+5. Integrate the flow into the Payload admin login UI.
 
 The HTTP layer must review CSRF protection, redirect allow-listing, cookie
 attributes, session fixation, response caching, rate limiting, and code leakage

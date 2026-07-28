@@ -1,5 +1,9 @@
 import type { Config, Plugin } from 'payload'
 
+import {
+  createExchangeCodeCollection,
+  defaultExchangeCodeCollection,
+} from './exchange/exchangeCodeCollection.js'
 import { createSupabaseStrategy } from './strategy/createSupabaseStrategy.js'
 import { createSupabaseTokenVerifier } from './token/verifyToken.js'
 import type { PayloadSupabaseAuthOptions } from './types.js'
@@ -18,23 +22,17 @@ export const supabaseAuthPlugin = (options: PayloadSupabaseAuthOptions): Plugin 
     )
 
     if (collectionIndex === undefined || collectionIndex < 0) {
-      throw new Error(
-        `Supabase auth collection "${options.authCollection}" was not found`,
-      )
+      throw new Error(`Supabase auth collection "${options.authCollection}" was not found`)
     }
 
     const collection = incomingConfig.collections![collectionIndex]!
 
     if (!collection.auth) {
-      throw new Error(
-        `Supabase auth collection "${options.authCollection}" must have auth enabled`,
-      )
+      throw new Error(`Supabase auth collection "${options.authCollection}" must have auth enabled`)
     }
 
     if (!options.verifyToken && !options.supabaseUrl) {
-      throw new Error(
-        'supabaseAuthPlugin requires either "supabaseUrl" or "verifyToken"',
-      )
+      throw new Error('supabaseAuthPlugin requires either "supabaseUrl" or "verifyToken"')
     }
 
     const verifyToken =
@@ -62,6 +60,16 @@ export const supabaseAuthPlugin = (options: PayloadSupabaseAuthOptions): Plugin 
     }
     const collections = [...incomingConfig.collections!]
     collections[collectionIndex] = updatedCollection
+
+    if (options.enableExchangeCodes !== false) {
+      const exchangeCodeCollection = options.exchangeCodeCollection ?? defaultExchangeCodeCollection
+      if (collections.some(({ slug }) => slug === exchangeCodeCollection)) {
+        throw new Error(
+          `Supabase exchange-code collection "${exchangeCodeCollection}" already exists`,
+        )
+      }
+      collections.push(createExchangeCodeCollection(exchangeCodeCollection))
+    }
 
     return {
       ...incomingConfig,

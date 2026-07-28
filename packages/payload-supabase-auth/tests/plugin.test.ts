@@ -109,8 +109,39 @@ describe('supabaseAuthPlugin', () => {
   it('requires verifier configuration when enabled', () => {
     const plugin = supabaseAuthPlugin({ authCollection: 'users' })
 
-    expect(() => plugin(createConfig())).toThrow(
-      'requires either "supabaseUrl" or "verifyToken"',
+    expect(() => plugin(createConfig())).toThrow('requires either "supabaseUrl" or "verifyToken"')
+  })
+
+  it('adds a hidden, access-denied exchange-code collection', async () => {
+    const transformed = await supabaseAuthPlugin({
+      authCollection: 'users',
+      verifyToken,
+    })(createConfig())
+    const collection = transformed.collections?.find(
+      ({ slug }) => slug === 'supabase-exchange-codes',
     )
+
+    expect(collection).toMatchObject({
+      admin: { hidden: true },
+      fields: expect.arrayContaining([
+        expect.objectContaining({
+          name: 'digest',
+          unique: true,
+          index: true,
+        }),
+        expect.objectContaining({ name: 'expiresAt', index: true }),
+      ]),
+    })
+    expect(collection?.access?.read?.({} as never)).toBe(false)
+  })
+
+  it('can omit the exchange-code collection', async () => {
+    const transformed = await supabaseAuthPlugin({
+      authCollection: 'users',
+      enableExchangeCodes: false,
+      verifyToken,
+    })(createConfig())
+
+    expect(transformed.collections).toHaveLength(1)
   })
 })

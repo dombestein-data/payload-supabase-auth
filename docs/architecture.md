@@ -137,14 +137,17 @@ only SHA-256 digests, defaults to a 60-second lifetime, and requires atomic
 delete-and-return consumption. Records link a Payload collection and user ID.
 
 Storage is abstracted behind `ExchangeCodeStore`. The included memory store is
-limited to tests and single-process development; production needs shared
-PostgreSQL-backed storage.
+limited to tests and single-process development.
+
+`createPayloadExchangeCodeStore` uses the hidden, access-denied
+`supabase-exchange-codes` collection. Consumption is one conditional PostgreSQL
+`DELETE … RETURNING` statement, making the database choose exactly one winner.
+Cleanup deletes expired rows and returns the number removed.
 
 ## Planned layers
 
 The repository structure anticipates, but does not yet implement:
 
-- PostgreSQL-backed exchange-code storage.
 - HTTP exchange into a Payload session cookie.
 - Callback, exchange, and logout endpoints.
 - Supabase-aware Payload admin login and auth provider components.

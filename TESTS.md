@@ -1,6 +1,6 @@
 # Test suite
 
-The package currently has 48 isolated tests across eight files. They require
+The package currently has 54 isolated tests across nine files. They require
 no database, Supabase project, environment variables, or network access.
 
 ## Plugin configuration
@@ -97,6 +97,12 @@ The five exchange tests verify digest-only storage, 256-bit opaque codes,
 expiry, single use, unknown-code rejection, concurrent consumption, TTL
 validation, and minimum entropy.
 
+File: `packages/payload-supabase-auth/tests/payloadExchangeCodeStore.test.ts`
+
+The four shared-store tests verify PostgreSQL record mapping, numeric user-ID
+preservation, delete-winner semantics, missing records, custom collection
+names, and expired-record cleanup.
+
 ## Running checks
 
 From the repository root:
@@ -112,9 +118,10 @@ pnpm --filter dev exec tsc --noEmit
 application's integration and browser tests. Those broader tests may require a
 configured PostgreSQL database and Playwright browser dependencies.
 
-The dev integration suite contains five live cases using PostgreSQL and a
+The dev integration suite contains seven live cases using PostgreSQL and a
 dedicated Supabase test user. It loads credentials from the gitignored
-`apps/dev/.env.test.local` and cleans up its linked Payload user afterward.
+`apps/dev/.env.test.local`. It verifies atomic concurrent exchange-code
+consumption and expired-row cleanup, then removes its test data afterward.
 
 ## Coverage boundaries
 

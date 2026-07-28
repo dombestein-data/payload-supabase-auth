@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    'supabase-exchange-codes': SupabaseExchangeCode;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,6 +79,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'supabase-exchange-codes': SupabaseExchangeCodesSelect<false> | SupabaseExchangeCodesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -167,6 +169,18 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "supabase-exchange-codes".
+ */
+export interface SupabaseExchangeCode {
+  id: number;
+  digest: string;
+  authCollection: string;
+  userId: string;
+  userIdType: 'number' | 'string';
+  expiresAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -196,6 +210,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'supabase-exchange-codes';
+        value: number | SupabaseExchangeCode;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -279,6 +297,17 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "supabase-exchange-codes_select".
+ */
+export interface SupabaseExchangeCodesSelect<T extends boolean = true> {
+  digest?: T;
+  authCollection?: T;
+  userId?: T;
+  userIdType?: T;
+  expiresAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

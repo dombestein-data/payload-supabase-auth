@@ -1,5 +1,10 @@
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
+import {
+  consumeExchangeCode,
+  createExchangeCode,
+  createPayloadExchangeCodeStore,
+} from '@dombestein-data/payload-supabase-auth'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -73,6 +78,11 @@ describe('API', () => {
   afterAll(async () => {
     if (payload && supabaseUserId) {
       await deleteLinkedUser()
+      await payload.delete({
+        collection: 'supabase-exchange-codes' as never,
+        overrideAccess: true,
+        where: {},
+      })
       await payload.destroy()
     }
   })
@@ -139,5 +149,42 @@ describe('API', () => {
     expect(users.totalDocs).toBe(1)
     expect(results[0].user?.id).toBe(users.docs[0]?.id)
     expect(results[1].user?.id).toBe(users.docs[0]?.id)
+  })
+
+  it('persists and atomically consumes an exchange code once', async () => {
+    const authenticated = await authenticate()
+    const store = createPayloadExchangeCodeStore(payload)
+    const created = await createExchangeCode({
+      authCollection: 'users',
+      store,
+      userId: authenticated.user!.id,
+    })
+
+    const results = await Promise.all([
+      consumeExchangeCode({ code: created.code, store }),
+      consumeExchangeCode({ code: created.code, store }),
+    ])
+
+    expect(results.filter(Boolean)).toHaveLength(1)
+    expect(results.find(Boolean)).toMatchObject({
+      authCollection: 'users',
+      userId: authenticated.user!.id,
+    })
+  })
+
+  it('cleans up expired exchange codes', async () => {
+    const authenticated = await authenticate()
+    const store = createPayloadExchangeCodeStore(payload)
+    const past = new Date(Date.now() - 10_000)
+    const created = await createExchangeCode({
+      authCollection: 'users',
+      now: () => past,
+      store,
+      ttlMs: 1_000,
+      userId: authenticated.user!.id,
+    })
+
+    await expect(store.cleanupExpired()).resolves.toBeGreaterThanOrEqual(1)
+    await expect(consumeExchangeCode({ code: created.code, store })).resolves.toBeNull()
   })
 })

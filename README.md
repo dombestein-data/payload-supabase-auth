@@ -99,18 +99,20 @@ in the JWT `sub` claim.
 
 ## Plugin options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `authCollection` | `string` | Required | Payload auth collection containing linked users. |
-| `supabaseUrl` | `string` | Required unless `verifyToken` is set | Supabase project base URL. |
-| `issuer` | `string` | `<supabaseUrl>/auth/v1` | Expected JWT issuer. |
-| `audience` | `string \| string[]` | `authenticated` | Expected JWT audience. |
-| `userIdField` | `string` | `supabaseUserId` | Payload field storing the Supabase subject. |
-| `verifyToken` | `SupabaseTokenVerifier` | Remote JWKS verifier | Custom verifier for testing or non-standard transports. |
-| `provisionUsers` | `boolean` | `false` | Create an unlinked user from verified claims. |
-| `synchronizeUsers` | `boolean` | `false` | Update changed mapped fields during authentication. |
-| `mapClaims` | `ClaimMapper` | Maps `email` | Maps verified claims to Payload fields for both lifecycle operations. |
-| `enabled` | `boolean` | `true` | When `false`, returns the incoming Payload config unchanged. |
+| Option                   | Type                    | Default                              | Description                                                           |
+| ------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| `authCollection`         | `string`                | Required                             | Payload auth collection containing linked users.                      |
+| `supabaseUrl`            | `string`                | Required unless `verifyToken` is set | Supabase project base URL.                                            |
+| `issuer`                 | `string`                | `<supabaseUrl>/auth/v1`              | Expected JWT issuer.                                                  |
+| `audience`               | `string \| string[]`    | `authenticated`                      | Expected JWT audience.                                                |
+| `userIdField`            | `string`                | `supabaseUserId`                     | Payload field storing the Supabase subject.                           |
+| `verifyToken`            | `SupabaseTokenVerifier` | Remote JWKS verifier                 | Custom verifier for testing or non-standard transports.               |
+| `provisionUsers`         | `boolean`               | `false`                              | Create an unlinked user from verified claims.                         |
+| `synchronizeUsers`       | `boolean`               | `false`                              | Update changed mapped fields during authentication.                   |
+| `mapClaims`              | `ClaimMapper`           | Maps `email`                         | Maps verified claims to Payload fields for both lifecycle operations. |
+| `exchangeCodeCollection` | `string`                | `supabase-exchange-codes`            | Internal shared exchange-code collection slug.                        |
+| `enableExchangeCodes`    | `boolean`               | `true`                               | Set `false` to omit the internal collection.                          |
+| `enabled`                | `boolean`               | `true`                               | When `false`, returns the incoming Payload config unchanged.          |
 
 The plugin rejects startup configuration when the selected collection is
 missing, is not auth-enabled, or has neither `supabaseUrl` nor a custom
@@ -152,12 +154,13 @@ The package also exports:
   identity lifecycle handling.
 - `createExchangeCode(options)` and `consumeExchangeCode(options)` for
   short-lived, single-use exchange primitives.
+- `createPayloadExchangeCodeStore(payload)` for shared PostgreSQL persistence.
+- `createSupabaseStrategy(options)` for manual strategy installation.
 
 Exchange codes contain at least 256 bits of entropy and only their SHA-256
 digests are stored. `createMemoryExchangeCodeStore()` is for tests and
-single-process development only. Production requires a shared
-`ExchangeCodeStore` with atomic consumption.
-- `createSupabaseStrategy(options)` for manual strategy installation.
+single-process development only. The Payload store uses the plugin's hidden
+collection and atomic PostgreSQL `DELETE … RETURNING` consumption.
 
 See the [plain-language overview](docs/overview.md),
 [architecture](docs/architecture.md), [security](docs/security.md), and

@@ -29,6 +29,12 @@ export type PayloadSupabaseAuthOptions = {
   /** Maps verified claims to Payload fields for provisioning and synchronization. */
   mapClaims?: ClaimMapper
 
+  /** Internal collection slug used for shared one-time exchange-code storage. */
+  exchangeCodeCollection?: string
+
+  /** Set false to omit the internal exchange-code collection. */
+  enableExchangeCodes?: boolean
+
   /** Set to false to leave the incoming Payload configuration unchanged. */
   enabled?: boolean
 }

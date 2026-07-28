@@ -79,6 +79,9 @@ src/
     ├── digestExchangeCode.ts        Hashes codes before storage
     ├── createExchangeCode.ts        Creates short-lived opaque codes
     ├── consumeExchangeCode.ts       Consumes a code exactly once
+    ├── exchangeCodeCollection.ts     Hidden internal collection definition
+    ├── createPayloadExchangeCodeStore.ts
+    │                                  Shared atomic PostgreSQL store
     └── createMemoryExchangeCodeStore.ts
                                        Test/development-only memory store
 ```
@@ -244,8 +247,9 @@ sequenceDiagram
 ```
 
 The included memory store is only suitable for tests and single-process
-development. The next implementation step is a shared PostgreSQL/Payload store,
-followed by the endpoint and secure cookie layer.
+development. Production uses the hidden Payload collection and a conditional
+PostgreSQL `DELETE … RETURNING` operation so one concurrent consumer wins. The
+next implementation step is the endpoint and secure cookie layer.
 
 ## Configuration summary
 
@@ -262,18 +266,20 @@ supabaseAuthPlugin({
 })
 ```
 
-| Option | Meaning |
-| --- | --- |
-| `authCollection` | Payload auth collection containing linked users. |
-| `supabaseUrl` | Project used for issuer and JWKS verification. |
-| `issuer` | Optional expected JWT issuer override. |
-| `audience` | Optional expected audience override. |
-| `userIdField` | Link field; defaults to `supabaseUserId`. |
-| `verifyToken` | Optional custom verifier. |
-| `provisionUsers` | Opt in to creating missing Payload users. |
-| `synchronizeUsers` | Opt in to updating changed mapped claims. |
-| `mapClaims` | Maps verified claims to Payload fields. |
-| `enabled` | Completely disables the plugin when `false`. |
+| Option                   | Meaning                                            |
+| ------------------------ | -------------------------------------------------- |
+| `authCollection`         | Payload auth collection containing linked users.   |
+| `supabaseUrl`            | Project used for issuer and JWKS verification.     |
+| `issuer`                 | Optional expected JWT issuer override.             |
+| `audience`               | Optional expected audience override.               |
+| `userIdField`            | Link field; defaults to `supabaseUserId`.          |
+| `verifyToken`            | Optional custom verifier.                          |
+| `provisionUsers`         | Opt in to creating missing Payload users.          |
+| `synchronizeUsers`       | Opt in to updating changed mapped claims.          |
+| `mapClaims`              | Maps verified claims to Payload fields.            |
+| `exchangeCodeCollection` | Internal shared exchange-code collection slug.     |
+| `enableExchangeCodes`    | Controls whether the internal collection is added. |
+| `enabled`                | Completely disables the plugin when `false`.       |
 
 ## Failure behavior
 

@@ -304,6 +304,9 @@ importers:
 
   packages/payload-supabase-auth:
     dependencies:
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
       jose:
         specifier: ^6.0.0
         version: 6.2.3

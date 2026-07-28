@@ -1,0 +1,38 @@
+{
+  "name": "@dombestein-data/payload-supabase-auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Supabase Auth integration for Payload CMS.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "payload": "^3.86.0"
+  },
+  "dependencies": {
+    "jose": "^6.0.0"
+  },
+  "devDependencies": {
+    "payload": "3.86.0",
+    "typescript": "5.7.3",
+    "vitest": "4.0.18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

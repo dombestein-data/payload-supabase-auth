@@ -1,0 +1,30 @@
+{
+  "name": "payload-supabase-auth-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Development workspace for @dombestein-data/payload-supabase-auth",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.14.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter dev dev",
+    "build": "pnpm -r build",
+    "changeset": "changeset",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "test:workspace": "vitest --config vitest.workspace.ts --run",
+    "lint": "pnpm -r lint",
+    "release": "pnpm --filter @dombestein-data/payload-supabase-auth publish --access public --no-git-checks",
+    "typecheck": "pnpm -r typecheck",
+    "version-packages": "changeset version"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "prettier": "^3.4.2",
+    "vitest": "4.0.18"
+  }
+}

@@ -19,16 +19,17 @@ pnpm dev
 
 Configure:
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string used by Payload. |
-| `PAYLOAD_SECRET` | Secure secret used by Payload. |
+| Variable                   | Purpose                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `DATABASE_URL`             | PostgreSQL connection string used by Payload.                         |
+| `PAYLOAD_SECRET`           | Secure secret used by Payload.                                        |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project base URL, such as `https://project-ref.supabase.co`. |
+| `SUPABASE_PUBLISHABLE_KEY` | Browser-safe key used by the admin login panel.                       |
 
-Live integration tests additionally load these values from
-`.env.test.local`: `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_TEST_EMAIL`, and
-`SUPABASE_TEST_PASSWORD`. Use a dedicated non-production test user. The local
-file is ignored by Git.
+Live integration tests additionally load `SUPABASE_TEST_EMAIL` and
+`SUPABASE_TEST_PASSWORD` from `.env.test.local` and may override the URL and
+publishable key there. Use a dedicated non-production test user. The local file
+is ignored by Git.
 
 The application is available at `http://localhost:3000`.
 
@@ -50,6 +51,15 @@ curl \
 A valid token from the configured project authenticates the linked Payload
 user. Invalid tokens and valid tokens without a linked user remain
 unauthenticated.
+
+To create a browser cookie, POST the same bearer token to
+`/api/supabase/exchange-code`, then POST the returned `code` as JSON to
+`/api/supabase/exchange`. Both requests need an `Origin` matching the Payload
+application. Log out with `POST /api/users/logout`.
+
+The Payload login page also contains the package's Supabase email/password
+panel. It performs this exchange automatically and redirects to `/admin` after
+the HttpOnly Payload cookie is created.
 
 ## Useful commands
 

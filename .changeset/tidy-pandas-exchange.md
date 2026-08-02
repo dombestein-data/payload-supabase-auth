@@ -1,5 +1,5 @@
 ---
-"@dombestein-data/payload-supabase-auth": patch
+'@dombestein-data/payload-supabase-auth': patch
 ---
 
 Add a hidden Payload collection and PostgreSQL-backed store for shared,

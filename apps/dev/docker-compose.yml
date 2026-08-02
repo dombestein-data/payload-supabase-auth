@@ -6,8 +6,8 @@ services:
     restart: unless-stopped
 
     ports:
-      - "5432:5432"
-    
+      - '5432:5432'
+
     environment:
       POSTGRES_USER: payload
       POSTGRES_PASSWORD: payload

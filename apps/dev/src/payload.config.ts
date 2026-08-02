@@ -33,6 +33,9 @@ export default buildConfig({
   sharp,
   plugins: [
     supabaseAuthPlugin({
+      admin: {
+        publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+      },
       authCollection: Users.slug,
       provisionUsers: true,
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',

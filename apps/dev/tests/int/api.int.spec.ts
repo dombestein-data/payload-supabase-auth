@@ -1,4 +1,4 @@
-import { getPayload, Payload } from 'payload'
+import { getPayload, handleEndpoints, Payload, type SanitizedConfig } from 'payload'
 import config from '@/payload.config'
 import {
   consumeExchangeCode,
@@ -12,6 +12,7 @@ let payload: Payload
 let accessToken: string
 let supabaseUserId: string
 let testEmail: string
+let payloadConfig: SanitizedConfig
 
 const authenticate = (token = accessToken) =>
   payload.auth({
@@ -34,7 +35,7 @@ const deleteLinkedUser = async () => {
 
 describe('API', () => {
   beforeAll(async () => {
-    const payloadConfig = await config
+    payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -186,5 +187,71 @@ describe('API', () => {
 
     await expect(store.cleanupExpired()).resolves.toBeGreaterThanOrEqual(1)
     await expect(consumeExchangeCode({ code: created.code, store })).resolves.toBeNull()
+  })
+
+  it('exchanges a code for a working Payload session cookie exactly once', async () => {
+    const authenticated = await authenticate()
+    const issueResponse = await handleEndpoints({
+      config: payloadConfig,
+      request: new Request('http://localhost:3000/api/supabase/exchange-code', {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          origin: 'http://localhost:3000',
+        },
+        method: 'POST',
+      }),
+    })
+    const issued = (await issueResponse.json()) as { code: string }
+
+    expect(issueResponse.status).toBe(201)
+    expect(issued.code).toEqual(expect.any(String))
+
+    const request = () =>
+      new Request('http://localhost:3000/api/supabase/exchange', {
+        body: JSON.stringify({ code: issued.code }),
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+        method: 'POST',
+      })
+
+    const response = await handleEndpoints({
+      config: payloadConfig,
+      request: request(),
+    })
+    const cookie = response.headers.get('set-cookie')
+
+    expect(response.status).toBe(200)
+    expect(cookie).toContain('HttpOnly')
+
+    const sessionAuth = await payload.auth({
+      headers: new Headers({
+        cookie: cookie!.split(';')[0],
+      }),
+    })
+    expect(sessionAuth.user?.id).toBe(authenticated.user!.id)
+
+    const replay = await handleEndpoints({
+      config: payloadConfig,
+      request: request(),
+    })
+    expect(replay.status).toBe(400)
+
+    const logout = await handleEndpoints({
+      config: payloadConfig,
+      request: new Request('http://localhost:3000/api/users/logout', {
+        headers: { cookie: cookie!.split(';')[0] },
+        method: 'POST',
+      }),
+    })
+    expect(logout.status).toBe(200)
+    expect(logout.headers.get('set-cookie')).toContain('payload-token=')
+
+    await expect(
+      payload.auth({
+        headers: new Headers({ cookie: cookie!.split(';')[0] }),
+      }),
+    ).resolves.toMatchObject({ user: null })
   })
 })

@@ -18,10 +18,15 @@ The package currently supports:
 - Resolving an existing linked Payload user.
 - Optional automatic Payload user provisioning.
 - Optional synchronization of mapped claims.
-- Secure primitives for a future one-time Payload session exchange.
+- Secure one-time exchange codes with shared PostgreSQL storage.
+- An authenticated endpoint that issues one-time codes from verified bearer
+  sessions.
+- A same-origin POST exchange endpoint that creates a Payload session cookie.
+- An opt-in Supabase email/password panel on Payload's admin login page.
+- Logout and session revocation through Payload's existing collection endpoint.
 
-It does not yet provide the exchange HTTP endpoint, a Payload session cookie,
-logout endpoints, or a Supabase-powered Payload admin login screen.
+The included UI is intentionally narrow. The host project still owns OAuth,
+magic-link, account recovery, and application-specific login experiences.
 
 ## Repository structure
 
@@ -69,6 +74,10 @@ src/
 │   └── verifyToken.ts               Verifies JWT signature and claims
 ├── strategy/
 │   └── createSupabaseStrategy.ts    Coordinates the authentication flow
+├── endpoints/
+│   ├── exchangeCode.ts              Issues a code to a verified bearer user
+│   ├── exchange.ts                  Exchanges a code for a Payload session
+│   └── origin.ts                    Enforces exact trusted origins
 ├── users/
 │   ├── claimMapping.ts              Maps claims to Payload fields
 │   ├── resolveLinkedUser.ts         Finds a user by Supabase subject
@@ -82,6 +91,8 @@ src/
     ├── exchangeCodeCollection.ts     Hidden internal collection definition
     ├── createPayloadExchangeCodeStore.ts
     │                                  Shared atomic PostgreSQL store
+    ├── createPayloadSession.ts       Signs JWTs and persists session IDs
+    ├── sessionCookie.ts              Serializes the Payload auth cookie
     └── createMemoryExchangeCodeStore.ts
                                        Test/development-only memory store
 ```
@@ -205,10 +216,10 @@ sequenceDiagram
     end
 ```
 
-## Exchange-code primitives
+## One-time session exchange
 
-The exchange module is groundwork for converting a Supabase-authenticated
-browser flow into a Payload session later.
+The two HTTP endpoints convert an authenticated Supabase browser session into
+a normal Payload session without putting either token in a URL.
 
 `createExchangeCode`:
 
@@ -224,22 +235,26 @@ concurrent requests cannot both use the same code.
 
 ```mermaid
 sequenceDiagram
-    participant AuthFlow as Future auth endpoint
+    participant Issue as POST code endpoint
     participant Codes as Exchange code store
     participant Browser
-    participant Exchange as Future exchange endpoint
+    participant Exchange as POST exchange endpoint
+    participant Payload
 
-    AuthFlow->>AuthFlow: Generate 256-bit opaque code
-    AuthFlow->>AuthFlow: Hash code with SHA-256
-    AuthFlow->>Codes: Store digest, user ID, and expiry
-    AuthFlow-->>Browser: Return raw one-time code
+    Browser->>Issue: POST with Supabase bearer token
+    Issue->>Issue: Verify token, user, and origin
+    Issue->>Issue: Generate and hash 256-bit code
+    Issue->>Codes: Store digest, user ID, and expiry
+    Issue-->>Browser: Return raw one-time code
     Browser->>Exchange: Submit one-time code
     Exchange->>Exchange: Hash submitted code
     Exchange->>Codes: Atomically delete and return record
 
     alt Code exists and is unexpired
         Codes-->>Exchange: Payload collection and user ID
-        Note over Exchange: Payload session cookie is a future slice
+        Exchange->>Payload: Load user and create session
+        Payload-->>Exchange: Signed Payload JWT
+        Exchange-->>Browser: HttpOnly session cookie
     else Missing, expired, or already used
         Codes-->>Exchange: No record
         Exchange-->>Browser: Reject exchange
@@ -249,12 +264,16 @@ sequenceDiagram
 The included memory store is only suitable for tests and single-process
 development. Production uses the hidden Payload collection and a conditional
 PostgreSQL `DELETE … RETURNING` operation so one concurrent consumer wins. The
-next implementation step is the endpoint and secure cookie layer.
+exchange endpoint requires the same request origin by default, supports an
+explicit trusted-origin allow-list, and marks responses as non-cacheable.
 
 ## Configuration summary
 
 ```ts
 supabaseAuthPlugin({
+  admin: {
+    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+  },
   authCollection: 'users',
   supabaseUrl: process.env.SUPABASE_URL,
   provisionUsers: true,
@@ -266,20 +285,27 @@ supabaseAuthPlugin({
 })
 ```
 
-| Option                   | Meaning                                            |
-| ------------------------ | -------------------------------------------------- |
-| `authCollection`         | Payload auth collection containing linked users.   |
-| `supabaseUrl`            | Project used for issuer and JWKS verification.     |
-| `issuer`                 | Optional expected JWT issuer override.             |
-| `audience`               | Optional expected audience override.               |
-| `userIdField`            | Link field; defaults to `supabaseUserId`.          |
-| `verifyToken`            | Optional custom verifier.                          |
-| `provisionUsers`         | Opt in to creating missing Payload users.          |
-| `synchronizeUsers`       | Opt in to updating changed mapped claims.          |
-| `mapClaims`              | Maps verified claims to Payload fields.            |
-| `exchangeCodeCollection` | Internal shared exchange-code collection slug.     |
-| `enableExchangeCodes`    | Controls whether the internal collection is added. |
-| `enabled`                | Completely disables the plugin when `false`.       |
+| Option                       | Meaning                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `authCollection`             | Payload auth collection containing linked users.    |
+| `supabaseUrl`                | Project used for issuer and JWKS verification.      |
+| `admin`                      | Opt-in Payload admin email/password login panel.    |
+| `issuer`                     | Optional expected JWT issuer override.              |
+| `audience`                   | Optional expected audience override.                |
+| `userIdField`                | Link field; defaults to `supabaseUserId`.           |
+| `verifyToken`                | Optional custom verifier.                           |
+| `provisionUsers`             | Opt in to creating missing Payload users.           |
+| `synchronizeUsers`           | Opt in to updating changed mapped claims.           |
+| `mapClaims`                  | Maps verified claims to Payload fields.             |
+| `exchangeCodeCollection`     | Internal shared exchange-code collection slug.      |
+| `enableExchangeCodes`        | Controls whether the internal collection is added.  |
+| `enableExchangeCodeEndpoint` | Controls authenticated one-time code issuance.      |
+| `exchangeCodeEndpointPath`   | Overrides `/supabase/exchange-code`.                |
+| `exchangeCodeTTL`            | One-time code lifetime in milliseconds.             |
+| `enableExchangeEndpoint`     | Controls whether the POST exchange endpoint exists. |
+| `exchangeEndpointPath`       | Overrides the default `/supabase/exchange` path.    |
+| `exchangeAllowedOrigins`     | Exact trusted origins for cross-origin frontends.   |
+| `enabled`                    | Completely disables the plugin when `false`.        |
 
 ## Failure behavior
 
@@ -296,7 +322,8 @@ The implementation is covered by isolated, stateful, PostgreSQL, and live
 Supabase tests. Current coverage includes token validation, provisioning,
 repeat resolution, synchronization, tampered-token rejection, access override,
 concurrent provisioning, exchange expiry, and concurrent single-use
-consumption.
+consumption. The live suite also exercises exchange-to-cookie authentication
+through Payload when its PostgreSQL and Supabase dependencies are available.
 
-See [TESTS.md](../TESTS.md) and [verification.md](verification.md) for commands
-and remaining live checks.
+See [TESTS.md](../TESTS.md) and [verification.md](verification.md) for the
+release-gate commands and live checks.

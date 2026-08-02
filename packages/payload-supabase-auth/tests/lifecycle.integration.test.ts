@@ -18,9 +18,7 @@ type StoredUser = {
 const createStatefulPayload = () => {
   const users: StoredUser[] = []
   const find = vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
-    const subject = (
-      where.supabaseUserId as { equals?: string } | undefined
-    )?.equals
+    const subject = (where.supabaseUserId as { equals?: string } | undefined)?.equals
     return {
       docs: users.filter((user) => user.supabaseUserId === subject).slice(0, 2),
     }
@@ -42,16 +40,14 @@ const createStatefulPayload = () => {
       return user
     },
   )
-  const update = vi.fn(
-    async ({ data, id }: { data: Partial<StoredUser>; id: string }) => {
-      const user = users.find((candidate) => candidate.id === id)
-      if (!user) {
-        throw new Error('missing user')
-      }
-      Object.assign(user, data)
-      return user
-    },
-  )
+  const update = vi.fn(async ({ data, id }: { data: Partial<StoredUser>; id: string }) => {
+    const user = users.find((candidate) => candidate.id === id)
+    if (!user) {
+      throw new Error('missing user')
+    }
+    Object.assign(user, data)
+    return user
+  })
   const payload = {
     collections: {
       users: { config: { auth: { depth: 0 } } },
@@ -64,10 +60,7 @@ const createStatefulPayload = () => {
   return { create, find, payload, update, users }
 }
 
-const authenticate = (
-  strategy: ReturnType<typeof createSupabaseStrategy>,
-  payload: Payload,
-) =>
+const authenticate = (strategy: ReturnType<typeof createSupabaseStrategy>, payload: Payload) =>
   strategy.authenticate({
     headers: new Headers({ authorization: 'Bearer token' }),
     payload,
@@ -122,26 +115,24 @@ describe('provisioning and synchronization integration', () => {
     expect(results[1].user?.id).toBe('user-1')
   })
 
-  it.each([
-    'invalid signature',
-    'wrong issuer',
-    'wrong audience',
-    'expired token',
-  ])('does not write for a rejected %s', async () => {
-    const state = createStatefulPayload()
-    const strategy = createSupabaseStrategy({
-      authCollection: 'users',
-      provisionUsers: true,
-      synchronizeUsers: true,
-      verifyToken: vi.fn().mockRejectedValue(new Error('rejected')),
-    })
+  it.each(['invalid signature', 'wrong issuer', 'wrong audience', 'expired token'])(
+    'does not write for a rejected %s',
+    async () => {
+      const state = createStatefulPayload()
+      const strategy = createSupabaseStrategy({
+        authCollection: 'users',
+        provisionUsers: true,
+        synchronizeUsers: true,
+        verifyToken: vi.fn().mockRejectedValue(new Error('rejected')),
+      })
 
-    await expect(authenticate(strategy, state.payload)).resolves.toEqual({
-      user: null,
-    })
-    expect(state.create).not.toHaveBeenCalled()
-    expect(state.update).not.toHaveBeenCalled()
-  })
+      await expect(authenticate(strategy, state.payload)).resolves.toEqual({
+        user: null,
+      })
+      expect(state.create).not.toHaveBeenCalled()
+      expect(state.update).not.toHaveBeenCalled()
+    },
+  )
 
   it('fails cleanly without email and performs no write', async () => {
     const state = createStatefulPayload()
@@ -177,14 +168,8 @@ describe('provisioning and synchronization integration', () => {
       user: provisioned,
     })
 
-    expect(state.find).toHaveBeenCalledWith(
-      expect.objectContaining({ overrideAccess: true }),
-    )
-    expect(state.create).toHaveBeenCalledWith(
-      expect.objectContaining({ overrideAccess: true }),
-    )
-    expect(state.update).toHaveBeenCalledWith(
-      expect.objectContaining({ overrideAccess: true }),
-    )
+    expect(state.find).toHaveBeenCalledWith(expect.objectContaining({ overrideAccess: true }))
+    expect(state.create).toHaveBeenCalledWith(expect.objectContaining({ overrideAccess: true }))
+    expect(state.update).toHaveBeenCalledWith(expect.objectContaining({ overrideAccess: true }))
   })
 })

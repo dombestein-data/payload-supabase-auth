@@ -13,14 +13,12 @@ describe('extractBearerToken', () => {
     expect(extractBearerToken(new Headers())).toBeNull()
   })
 
-  it.each([
-    'Basic credentials',
-    'Bearer',
-    'Bearer token with-spaces',
-    'token-without-scheme',
-  ])('returns null for malformed authorization value %j', (authorization) => {
-    const headers = new Headers({ authorization })
+  it.each(['Basic credentials', 'Bearer', 'Bearer token with-spaces', 'token-without-scheme'])(
+    'returns null for malformed authorization value %j',
+    (authorization) => {
+      const headers = new Headers({ authorization })
 
-    expect(extractBearerToken(headers)).toBeNull()
-  })
+      expect(extractBearerToken(headers)).toBeNull()
+    },
+  )
 })

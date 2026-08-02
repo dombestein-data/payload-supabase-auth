@@ -109,8 +109,6 @@ describe('createSupabaseTokenVerifier', () => {
       .setExpirationTime('5m')
       .sign(privateKey)
 
-    await expect(createVerifier()(token)).rejects.toThrow(
-      'missing a valid subject claim',
-    )
+    await expect(createVerifier()(token)).rejects.toThrow('missing a valid subject claim')
   })
 })

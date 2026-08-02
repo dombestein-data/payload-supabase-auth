@@ -23,6 +23,13 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dombestein-data/payload-supabase-auth typecheck
+      - run: pnpm --filter @dombestein-data/payload-supabase-auth test
+      - run: pnpm --filter @dombestein-data/payload-supabase-auth build
+      - run: pnpm --filter dev exec tsc --noEmit
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm --filter @dombestein-data/payload-supabase-auth exec npm pack --dry-run
       - uses: changesets/action@v1
         with:
           publish: pnpm release

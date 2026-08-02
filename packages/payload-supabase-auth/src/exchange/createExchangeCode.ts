@@ -1,10 +1,7 @@
 import { randomBytes } from 'node:crypto'
 
 import { digestExchangeCode } from './digestExchangeCode.js'
-import type {
-  CreatedExchangeCode,
-  ExchangeCodeStore,
-} from './types.js'
+import type { CreatedExchangeCode, ExchangeCodeStore } from './types.js'
 
 const defaultTTL = 60_000
 

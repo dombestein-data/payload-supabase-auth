@@ -143,5 +143,128 @@ describe('supabaseAuthPlugin', () => {
     })(createConfig())
 
     expect(transformed.collections).toHaveLength(1)
+    expect(transformed.endpoints).toHaveLength(0)
+  })
+
+  it('adds both exchange endpoints while preserving existing endpoints', async () => {
+    const existingEndpoint = {
+      handler: vi.fn(),
+      method: 'get' as const,
+      path: '/existing',
+    }
+    const transformed = await supabaseAuthPlugin({
+      authCollection: 'users',
+      exchangeEndpointPath: '/auth/exchange',
+      verifyToken,
+    })({
+      ...createConfig(),
+      endpoints: [existingEndpoint],
+    })
+
+    expect(transformed.endpoints).toEqual([
+      existingEndpoint,
+      expect.objectContaining({
+        method: 'post',
+        path: '/supabase/exchange-code',
+      }),
+      expect.objectContaining({
+        method: 'post',
+        path: '/auth/exchange',
+      }),
+    ])
+  })
+
+  it('rejects an existing exchange endpoint path', () => {
+    const plugin = supabaseAuthPlugin({
+      authCollection: 'users',
+      verifyToken,
+    })
+
+    expect(() =>
+      plugin({
+        ...createConfig(),
+        endpoints: [
+          {
+            handler: vi.fn(),
+            method: 'post',
+            path: '/supabase/exchange',
+          },
+        ],
+      }),
+    ).toThrow('auth endpoint')
+  })
+
+  it('can omit the exchange-code issuer endpoint independently', async () => {
+    const transformed = await supabaseAuthPlugin({
+      authCollection: 'users',
+      enableExchangeCodeEndpoint: false,
+      verifyToken,
+    })(createConfig())
+
+    expect(transformed.endpoints).toEqual([expect.objectContaining({ path: '/supabase/exchange' })])
+  })
+
+  it('adds an opt-in Supabase panel to the admin login page', async () => {
+    const existingComponent = { path: '/existing-component' }
+    const transformed = await supabaseAuthPlugin({
+      admin: {
+        description: 'Company account',
+        publishableKey: 'public-test-key',
+      },
+      authCollection: 'users',
+      exchangeCodeEndpointPath: '/auth/code',
+      exchangeEndpointPath: '/auth/session',
+      supabaseUrl: 'https://project.supabase.co',
+    })({
+      ...createConfig(),
+      admin: { components: { beforeLogin: [existingComponent] } },
+      routes: { admin: '/cms', api: '/service' },
+    })
+
+    expect(transformed.admin?.components?.beforeLogin).toEqual([
+      existingComponent,
+      {
+        clientProps: {
+          adminRoute: '/cms',
+          description: 'Company account',
+          exchangeCodeEndpoint: '/service/auth/code',
+          exchangeEndpoint: '/service/auth/session',
+          heading: undefined,
+          publishableKey: 'public-test-key',
+          supabaseUrl: 'https://project.supabase.co',
+        },
+        exportName: 'SupabaseLogin',
+        path: '@dombestein-data/payload-supabase-auth/client',
+      },
+    ])
+  })
+
+  it('warns and leaves a visual warning configured when admin settings are incomplete', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const transformed = await supabaseAuthPlugin({
+      admin: {},
+      authCollection: 'users',
+      verifyToken,
+    })(createConfig())
+
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('not fully configured'))
+    expect(transformed.admin?.components?.beforeLogin?.[0]).toMatchObject({
+      clientProps: {
+        publishableKey: undefined,
+        supabaseUrl: undefined,
+      },
+    })
+    consoleError.mockRestore()
+  })
+
+  it('does not add the admin panel when the admin option is disabled', async () => {
+    const transformed = await supabaseAuthPlugin({
+      admin: { enabled: false },
+      authCollection: 'users',
+      verifyToken,
+    })(createConfig())
+
+    expect(transformed.admin?.components?.beforeLogin).toBeUndefined()
   })
 })

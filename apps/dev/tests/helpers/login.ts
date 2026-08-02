@@ -22,7 +22,7 @@ export async function login({
 
   await page.fill('#field-email', user.email)
   await page.fill('#field-password', user.password)
-  await page.click('button[type="submit"]')
+  await page.locator('#field-password').press('Enter')
 
   await page.waitForURL(`${serverURL}/admin`)
 

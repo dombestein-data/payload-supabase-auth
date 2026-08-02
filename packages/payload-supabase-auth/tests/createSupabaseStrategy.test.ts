@@ -51,34 +51,31 @@ describe('createSupabaseStrategy', () => {
       verifyToken,
     })
 
-    await expect(
-      strategy.authenticate({ headers: new Headers(), payload }),
-    ).resolves.toEqual({ user: null })
+    await expect(strategy.authenticate({ headers: new Headers(), payload })).resolves.toEqual({
+      user: null,
+    })
     expect(verifyToken).not.toHaveBeenCalled()
   })
 
-  it.each(['invalid token', 'unlinked user'])(
-    'fails closed for an %s',
-    async (scenario) => {
-      const verifyToken =
-        scenario === 'invalid token'
-          ? vi.fn().mockRejectedValue(new Error('invalid'))
-          : vi.fn().mockResolvedValue({ sub: 'supabase-user-1' })
-      const resolveUser = vi.fn().mockResolvedValue(null)
-      const strategy = createSupabaseStrategy({
-        authCollection: 'users',
-        resolveUser,
-        verifyToken,
-      })
+  it.each(['invalid token', 'unlinked user'])('fails closed for an %s', async (scenario) => {
+    const verifyToken =
+      scenario === 'invalid token'
+        ? vi.fn().mockRejectedValue(new Error('invalid'))
+        : vi.fn().mockResolvedValue({ sub: 'supabase-user-1' })
+    const resolveUser = vi.fn().mockResolvedValue(null)
+    const strategy = createSupabaseStrategy({
+      authCollection: 'users',
+      resolveUser,
+      verifyToken,
+    })
 
-      await expect(
-        strategy.authenticate({
-          headers: new Headers({ authorization: 'Bearer token' }),
-          payload,
-        }),
-      ).resolves.toEqual({ user: null })
-    },
-  )
+    await expect(
+      strategy.authenticate({
+        headers: new Headers({ authorization: 'Bearer token' }),
+        payload,
+      }),
+    ).resolves.toEqual({ user: null })
+  })
 
   it('uses depth zero for GraphQL authentication', async () => {
     const resolveUser = vi.fn().mockResolvedValue(null)
@@ -94,10 +91,7 @@ describe('createSupabaseStrategy', () => {
       payload,
     })
 
-    expect(resolveUser).toHaveBeenCalledWith(
-      payload,
-      expect.objectContaining({ depth: 0 }),
-    )
+    expect(resolveUser).toHaveBeenCalledWith(payload, expect.objectContaining({ depth: 0 }))
   })
 
   it('provisions an unlinked user when enabled', async () => {

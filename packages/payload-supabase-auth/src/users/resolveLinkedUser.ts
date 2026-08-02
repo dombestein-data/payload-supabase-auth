@@ -1,9 +1,4 @@
-import type {
-  AuthCollectionSlug,
-  AuthStrategyResult,
-  Payload,
-  Where,
-} from 'payload'
+import type { AuthCollectionSlug, AuthStrategyResult, Payload, Where } from 'payload'
 
 export type ResolveLinkedUserOptions = {
   /** Payload collection containing the linked user. */

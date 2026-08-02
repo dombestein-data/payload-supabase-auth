@@ -3,18 +3,9 @@ import type { AuthCollectionSlug, AuthStrategy } from 'payload'
 import { extractBearerToken } from '../token/extractBearerToken.js'
 import type { SupabaseTokenVerifier } from '../token/verifyToken.js'
 import type { ClaimMapper } from '../users/claimMapping.js'
-import {
-  provisionUser,
-  type ProvisionUserOptions,
-} from '../users/provisionUser.js'
-import {
-  resolveLinkedUser,
-  type ResolveLinkedUserOptions,
-} from '../users/resolveLinkedUser.js'
-import {
-  synchronizeUser,
-  type SynchronizeUserOptions,
-} from '../users/synchronizeUser.js'
+import { provisionUser, type ProvisionUserOptions } from '../users/provisionUser.js'
+import { resolveLinkedUser, type ResolveLinkedUserOptions } from '../users/resolveLinkedUser.js'
+import { synchronizeUser, type SynchronizeUserOptions } from '../users/synchronizeUser.js'
 
 export type CreateSupabaseStrategyOptions = {
   /** Payload collection containing the Supabase-linked users. */
@@ -45,9 +36,7 @@ export type CreateSupabaseStrategyOptions = {
   ) => ReturnType<typeof synchronizeUser>
 }
 
-export const createSupabaseStrategy = (
-  options: CreateSupabaseStrategyOptions,
-): AuthStrategy => {
+export const createSupabaseStrategy = (options: CreateSupabaseStrategyOptions): AuthStrategy => {
   const name = options.name ?? 'supabase-bearer'
   const resolveUser = options.resolveUser ?? resolveLinkedUser
   const createUser = options.provisionUser ?? provisionUser
@@ -55,12 +44,7 @@ export const createSupabaseStrategy = (
 
   return {
     name,
-    authenticate: async ({
-      headers,
-      isGraphQL = false,
-      payload,
-      strategyName = name,
-    }) => {
+    authenticate: async ({ headers, isGraphQL = false, payload, strategyName = name }) => {
       const token = extractBearerToken(headers)
 
       if (!token) {
@@ -73,8 +57,8 @@ export const createSupabaseStrategy = (
           authCollection: options.authCollection,
           depth: isGraphQL
             ? 0
-            : payload.collections[options.authCollection as AuthCollectionSlug]
-                ?.config.auth.depth ?? 0,
+            : (payload.collections[options.authCollection as AuthCollectionSlug]?.config.auth
+                .depth ?? 0),
           subject: claims.sub,
           userIdField: options.userIdField,
         }

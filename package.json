@@ -18,7 +18,8 @@
     "test": "pnpm -r test",
     "test:workspace": "vitest --config vitest.workspace.ts --run",
     "lint": "pnpm -r lint",
-    "release": "pnpm --filter @dombestein-data/payload-supabase-auth publish --access public --no-git-checks",
+    "release": "pnpm --filter @dombestein-data/payload-supabase-auth publish --access public",
+    "release:dry-run": "pnpm --filter @dombestein-data/payload-supabase-auth publish --access public --dry-run --no-git-checks",
     "typecheck": "pnpm -r typecheck",
     "version-packages": "changeset version"
   },

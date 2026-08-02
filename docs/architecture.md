@@ -3,8 +3,12 @@
 ## Scope
 
 The implemented slices authenticate API requests carrying a Supabase access
-token and optionally provision or synchronize the linked Payload user. They do
-not yet issue Payload sessions or replace the Payload admin login experience.
+token, optionally provision or synchronize the linked Payload user, and
+exchange a verified bearer identity through a short-lived one-time code into a
+Payload session cookie. An opt-in Payload admin panel performs Supabase
+email/password login and session exchange; custom OAuth and magic-link flows
+can use the same endpoints. Logout uses Payload's existing auth-collection
+endpoint.
 
 ## Components
 
@@ -85,6 +89,57 @@ GraphQL requests, matching Payload's built-in strategy behavior. It returns
 `{ user: null }` on authentication failures so Payload may continue to another
 configured strategy.
 
+### Session exchange endpoint
+
+`src/endpoints/exchangeCode.ts` installs `POST /supabase/exchange-code`. The
+request must authenticate through `supabase-bearer`, use the configured auth
+collection, and pass exact origin validation. It clears expired records and
+returns a newly stored opaque code without caching the response.
+
+`src/endpoints/exchange.ts` installs `POST /supabase/exchange` by default. It
+requires an `Origin` header matching the request URL origin unless an explicit
+origin allow-list is configured. It accepts a code in the JSON request body,
+atomically consumes it from the PostgreSQL store, verifies that the record
+belongs to the configured auth collection, and creates a Payload session.
+
+`src/exchange/createPayloadSession.ts` loads the user with hidden auth fields,
+prunes expired sessions and persists a new session ID when Payload sessions
+are enabled, then signs a Payload-compatible JWT using the configured secret
+and auth collection settings. `src/exchange/sessionCookie.ts` serializes the
+JWT as the configured HttpOnly Payload cookie. Exchange responses disable
+caching and do not return the user document or token.
+
+### Payload admin login panel
+
+When an `admin` block is supplied, the plugin appends the client component from
+the package's `./client` export to Payload's `beforeLogin` components. Existing
+admin components and Payload's local login form are preserved.
+
+The component sends credentials directly to Supabase, uses the returned access
+token only in memory to request a one-time exchange code, submits that code to
+Payload, and reloads the safe same-site admin redirect after the HttpOnly
+session cookie is set. The publishable key and project URL come from immutable
+Payload configuration. Missing configuration produces both a server-console
+error and a visible login-page warning.
+
+```mermaid
+sequenceDiagram
+    participant Admin as Admin browser
+    participant Login as Supabase login panel
+    participant Supabase as Supabase Auth
+    participant Issue as Payload code endpoint
+    participant Exchange as Payload exchange endpoint
+
+    Admin->>Login: Submit email and password
+    Login->>Supabase: Password token request
+    Supabase-->>Login: Access token
+    Login->>Issue: Bearer token
+    Issue-->>Login: One-time code
+    Login->>Exchange: One-time code
+    Exchange-->>Admin: HttpOnly Payload session cookie
+    Login->>Admin: Safe redirect to admin
+```
+
 ## Request sequence
 
 ```mermaid
@@ -125,6 +180,11 @@ Consumers can use the top-level plugin or compose the lower-level exports:
 - `extractBearerToken`
 - `createExchangeCode`
 - `consumeExchangeCode`
+- `createPayloadExchangeCodeStore`
+- `createPayloadSession`
+- `createPayloadSessionCookie`
+- `createExchangeCodeEndpoint`
+- `createExchangeEndpoint`
 
 The strategy accepts a custom resolver, and both the plugin and strategy accept
 a custom verifier. These seams keep unit tests deterministic and allow custom
@@ -144,10 +204,13 @@ limited to tests and single-process development.
 `DELETE … RETURNING` statement, making the database choose exactly one winner.
 Cleanup deletes expired rows and returns the number removed.
 
-## Planned layers
+## Deliberately host-owned layers
 
-The repository structure anticipates, but does not yet implement:
+The stable v1 API does not prescribe:
 
-- HTTP exchange into a Payload session cookie.
-- Callback, exchange, and logout endpoints.
-- Supabase-aware Payload admin login and auth provider components.
+- OAuth, magic-link, and other provider callback UIs.
+- Role and authorization policy for application-specific Payload fields.
+- Provider-specific redirects after authentication.
+
+Payload's existing `POST /api/{authCollection}/logout` endpoint clears the
+cookie and revokes its session ID when Payload sessions are enabled.

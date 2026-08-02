@@ -1,8 +1,4 @@
-import {
-  createRemoteJWKSet,
-  jwtVerify,
-  type JWTVerifyGetKey,
-} from 'jose'
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
 
 import type { SupabaseJwtClaims } from './claims.js'
 
@@ -22,9 +18,7 @@ export type SupabaseTokenVerifierOptions = {
   jwks?: JWTVerifyGetKey
 }
 
-export type SupabaseTokenVerifier = (
-  token: string,
-) => Promise<SupabaseJwtClaims>
+export type SupabaseTokenVerifier = (token: string) => Promise<SupabaseJwtClaims>
 
 const withoutTrailingSlash = (value: string): string => value.replace(/\/+$/, '')
 
@@ -37,9 +31,7 @@ export const createSupabaseTokenVerifier = (
   const audience = options.audience ?? 'authenticated'
   const jwks =
     options.jwks ??
-    createRemoteJWKSet(
-      new URL(`${withoutTrailingSlash(issuer)}/.well-known/jwks.json`),
-    )
+    createRemoteJWKSet(new URL(`${withoutTrailingSlash(issuer)}/.well-known/jwks.json`))
 
   return async (token: string): Promise<SupabaseJwtClaims> => {
     const { payload } = await jwtVerify(token, jwks, {

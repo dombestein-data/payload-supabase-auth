@@ -5,11 +5,11 @@ an authentication-enabled [Payload CMS](https://payloadcms.com/) collection.
 Requests carrying a valid Supabase bearer token are authenticated as the
 Payload user whose `supabaseUserId` matches the token's `sub` claim.
 
-The project is under active development. The current release supports bearer
-authentication, opt-in user provisioning, and opt-in claim synchronization.
-Payload session exchange, logout endpoints, and a Supabase admin login UI are
-not implemented yet. Secure exchange-code primitives exist but are not exposed
-through HTTP endpoints.
+The v1 API supports bearer authentication, opt-in user provisioning, opt-in
+claim synchronization, a browser flow that exchanges a verified Supabase
+access token for a normal Payload session cookie, and an opt-in email/password
+panel for Payload's admin login page. Host applications can still use their own
+magic-link, OAuth, or other Supabase client flow with the exchange endpoints.
 
 ## Current authentication flow
 
@@ -80,6 +80,9 @@ export default buildConfig({
   collections: [Users],
   plugins: [
     supabaseAuthPlugin({
+      admin: {
+        publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+      },
       authCollection: Users.slug,
       provisionUsers: true,
       supabaseUrl: process.env.SUPABASE_URL,
@@ -93,26 +96,51 @@ export default buildConfig({
 `https://project-ref.supabase.co`. It is required unless a custom
 `verifyToken` function is supplied.
 
+Providing `admin` adds a Supabase email/password form above Payload's normal
+admin login form. `publishableKey` must be a browser-safe Supabase publishable
+key (or legacy anon key), never a service-role or secret key. The value is read
+from server configuration and serialized to the login component; there is no
+runtime settings screen. If the URL, publishable key, or exchange endpoints are
+missing, the plugin logs a startup error and the login page shows a
+configuration warning.
+
+The local Payload form remains available because Payload's standard logout
+path owns session-ID revocation. Fully replacing local authentication requires
+a separately reviewed custom logout lifecycle.
+
 When provisioning is disabled, the linked Payload user must exist before
 authentication. Its `supabaseUserId` must equal the Supabase user's UUID found
 in the JWT `sub` claim.
 
+The session-exchange flow adds the hidden `supabase-exchange-codes` collection
+and currently requires Payload's PostgreSQL adapter. Include that collection in
+your normal Payload schema workflow: generate and apply a migration before
+deploying to production. For bearer-only authentication or another database
+adapter, set `enableExchangeCodes: false`.
+
 ## Plugin options
 
-| Option                   | Type                    | Default                              | Description                                                           |
-| ------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------------------- |
-| `authCollection`         | `string`                | Required                             | Payload auth collection containing linked users.                      |
-| `supabaseUrl`            | `string`                | Required unless `verifyToken` is set | Supabase project base URL.                                            |
-| `issuer`                 | `string`                | `<supabaseUrl>/auth/v1`              | Expected JWT issuer.                                                  |
-| `audience`               | `string \| string[]`    | `authenticated`                      | Expected JWT audience.                                                |
-| `userIdField`            | `string`                | `supabaseUserId`                     | Payload field storing the Supabase subject.                           |
-| `verifyToken`            | `SupabaseTokenVerifier` | Remote JWKS verifier                 | Custom verifier for testing or non-standard transports.               |
-| `provisionUsers`         | `boolean`               | `false`                              | Create an unlinked user from verified claims.                         |
-| `synchronizeUsers`       | `boolean`               | `false`                              | Update changed mapped fields during authentication.                   |
-| `mapClaims`              | `ClaimMapper`           | Maps `email`                         | Maps verified claims to Payload fields for both lifecycle operations. |
-| `exchangeCodeCollection` | `string`                | `supabase-exchange-codes`            | Internal shared exchange-code collection slug.                        |
-| `enableExchangeCodes`    | `boolean`               | `true`                               | Set `false` to omit the internal collection.                          |
-| `enabled`                | `boolean`               | `true`                               | When `false`, returns the incoming Payload config unchanged.          |
+| Option                       | Type                    | Default                              | Description                                                           |
+| ---------------------------- | ----------------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| `authCollection`             | `string`                | Required                             | Payload auth collection containing linked users.                      |
+| `supabaseUrl`                | `string`                | Required unless `verifyToken` is set | Supabase project base URL.                                            |
+| `admin`                      | `SupabaseAdminOptions`  | Disabled                             | Adds the Supabase panel to Payload's admin login page when provided.  |
+| `issuer`                     | `string`                | `<supabaseUrl>/auth/v1`              | Expected JWT issuer.                                                  |
+| `audience`                   | `string \| string[]`    | `authenticated`                      | Expected JWT audience.                                                |
+| `userIdField`                | `string`                | `supabaseUserId`                     | Payload field storing the Supabase subject.                           |
+| `verifyToken`                | `SupabaseTokenVerifier` | Remote JWKS verifier                 | Custom verifier for testing or non-standard transports.               |
+| `provisionUsers`             | `boolean`               | `false`                              | Create an unlinked user from verified claims.                         |
+| `synchronizeUsers`           | `boolean`               | `false`                              | Update changed mapped fields during authentication.                   |
+| `mapClaims`                  | `ClaimMapper`           | Maps `email`                         | Maps verified claims to Payload fields for both lifecycle operations. |
+| `exchangeCodeCollection`     | `string`                | `supabase-exchange-codes`            | Internal shared exchange-code collection slug.                        |
+| `enableExchangeCodes`        | `boolean`               | `true`                               | Set `false` to omit the internal collection.                          |
+| `enableExchangeCodeEndpoint` | `boolean`               | `true`                               | Set `false` to omit authenticated code issuance.                      |
+| `exchangeCodeEndpointPath`   | `string`                | `/supabase/exchange-code`            | Path of the authenticated code-issuance endpoint.                     |
+| `exchangeCodeTTL`            | `number`                | `60000`                              | Lifetime of issued codes in milliseconds.                             |
+| `enableExchangeEndpoint`     | `boolean`               | `true`                               | Set `false` to omit the session-exchange endpoint.                    |
+| `exchangeEndpointPath`       | `string`                | `/supabase/exchange`                 | Path of the POST session-exchange endpoint.                           |
+| `exchangeAllowedOrigins`     | `string[]`              | Request URL origin                   | Exact origins allowed to call both exchange endpoints.                |
+| `enabled`                    | `boolean`               | `true`                               | When `false`, returns the incoming Payload config unchanged.          |
 
 The plugin rejects startup configuration when the selected collection is
 missing, is not auth-enabled, or has neither `supabaseUrl` nor a custom
@@ -155,6 +183,12 @@ The package also exports:
 - `createExchangeCode(options)` and `consumeExchangeCode(options)` for
   short-lived, single-use exchange primitives.
 - `createPayloadExchangeCodeStore(payload)` for shared PostgreSQL persistence.
+- `createPayloadSession(options)` and `createPayloadSessionCookie(options)` for
+  Payload-compatible JWT sessions and hardened cookies.
+- `createExchangeCodeEndpoint(options)` for authenticated one-time code
+  issuance.
+- `createExchangeEndpoint(options)` for installing the POST exchange handler
+  manually.
 - `createSupabaseStrategy(options)` for manual strategy installation.
 
 Exchange codes contain at least 256 bits of entropy and only their SHA-256
@@ -162,10 +196,66 @@ digests are stored. `createMemoryExchangeCodeStore()` is for tests and
 single-process development only. The Payload store uses the plugin's hidden
 collection and atomic PostgreSQL `DELETE … RETURNING` consumption.
 
+The default exchange store requires Payload's PostgreSQL adapter. Set
+`enableExchangeCodes: false` for bearer-only use with another adapter.
+
+## Browser session flow
+
+After Supabase signs the user in, issue and exchange a one-time code:
+
+```ts
+const issued = await fetch('/api/supabase/exchange-code', {
+  headers: { Authorization: `Bearer ${supabaseAccessToken}` },
+  method: 'POST',
+})
+if (!issued.ok) throw new Error('Unable to start Payload session')
+const { code } = await issued.json()
+
+const exchanged = await fetch('/api/supabase/exchange', {
+  body: JSON.stringify({ code }),
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  method: 'POST',
+})
+if (!exchanged.ok) throw new Error('Unable to create Payload session')
+```
+
+Both endpoints require an exact allowed `Origin`, return non-cacheable
+responses, and never put the Supabase token in the Payload cookie. For a
+separate frontend origin, configure both Payload `cors` and
+`exchangeAllowedOrigins`, then retain `credentials: 'include'`.
+
+Log out through Payload's existing auth-collection endpoint:
+
+```ts
+await fetch('/api/users/logout', {
+  credentials: 'include',
+  method: 'POST',
+})
+```
+
+Replace `users` if `authCollection` uses another slug. With Payload sessions
+enabled (the Payload default), logout also revokes the session ID server-side.
+
+## Production checklist
+
+- Use an HTTPS deployment and a strong, stable `PAYLOAD_SECRET`.
+- Keep the link field unique, indexed, and read-only to ordinary users.
+- Apply the exchange-code collection migration before serving traffic.
+- Configure exact `exchangeAllowedOrigins` and matching Payload `cors` entries
+  when the frontend is hosted separately.
+- Keep Payload sessions enabled when server-side logout revocation is required.
+- Map authorization only from validated, server-controlled claims such as
+  Supabase `app_metadata`.
+- Do not log access tokens, exchange codes, cookies, or Authorization headers.
+
+For adoption and release operations, start with the
+[full integration guide](integration.md) and [publishing guide](publish.md).
 See the [plain-language overview](docs/overview.md),
-[architecture](docs/architecture.md), [security](docs/security.md), and
-[token-exchange design](docs/token-exchange.md), and [test coverage](TESTS.md)
-for implementation details and current boundaries.
+[architecture](docs/architecture.md), [security](docs/security.md),
+[token-exchange design](docs/token-exchange.md), [test coverage](TESTS.md), and
+[agent/contributor guide](agents.md) for implementation details and current
+boundaries.
 
 ## Development
 
@@ -173,6 +263,8 @@ for implementation details and current boundaries.
 pnpm --filter @dombestein-data/payload-supabase-auth typecheck
 pnpm --filter @dombestein-data/payload-supabase-auth test
 pnpm --filter @dombestein-data/payload-supabase-auth build
+pnpm lint
+pnpm format:check
 ```
 
 The package unit tests do not require a database, network access, or a Supabase

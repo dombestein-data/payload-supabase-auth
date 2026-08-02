@@ -18,10 +18,7 @@ export const consumeExchangeCode = async (
   }
 
   const now = options.now?.() ?? new Date()
-  const record = await options.store.consume(
-    digestExchangeCode(options.code),
-    now,
-  )
+  const record = await options.store.consume(digestExchangeCode(options.code), now)
 
   if (!record || record.expiresAt.getTime() <= now.getTime()) {
     return null

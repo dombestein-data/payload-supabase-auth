@@ -3,10 +3,7 @@ import { randomBytes } from 'node:crypto'
 import type { AuthCollectionSlug, Payload } from 'payload'
 
 import type { SupabaseJwtClaims } from '../token/claims.js'
-import {
-  mapDefaultClaims,
-  type ClaimMapper,
-} from './claimMapping.js'
+import { mapDefaultClaims, type ClaimMapper } from './claimMapping.js'
 import type { LinkedUser } from './resolveLinkedUser.js'
 
 export type ProvisionUserOptions = {

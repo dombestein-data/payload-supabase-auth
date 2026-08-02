@@ -1,10 +1,7 @@
 import type { AuthCollectionSlug, Payload } from 'payload'
 
 import type { SupabaseJwtClaims } from '../token/claims.js'
-import {
-  mapDefaultClaims,
-  type ClaimMapper,
-} from './claimMapping.js'
+import { mapDefaultClaims, type ClaimMapper } from './claimMapping.js'
 import type { LinkedUser } from './resolveLinkedUser.js'
 
 export type SynchronizeUserOptions = {
@@ -30,8 +27,7 @@ export const synchronizeUser = async (
   ])
   const changes = Object.fromEntries(
     Object.entries(mappedData).filter(
-      ([key, value]) =>
-        !protectedFields.has(key) && !Object.is(currentUser[key], value),
+      ([key, value]) => !protectedFields.has(key) && !Object.is(currentUser[key], value),
     ),
   )
 

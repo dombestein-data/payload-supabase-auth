@@ -4,6 +4,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { provisionUser, synchronizeUser } from '../src/index.js'
 
 describe('provisionUser', () => {
+  it('can provision a Supabase-authoritative user without a Payload password', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'payload-user' })
+
+    await provisionUser({ create } as unknown as Payload, {
+      authCollection: 'users',
+      claims: { email: 'user@example.com', sub: 'supabase-user' },
+      generatePayloadPassword: false,
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          email: 'user@example.com',
+          supabaseUserId: 'supabase-user',
+        },
+      }),
+    )
+  })
+
   it('creates a linked user from verified claims', async () => {
     const user = { id: 'user-1', email: 'editor@example.com' }
     const payload = {

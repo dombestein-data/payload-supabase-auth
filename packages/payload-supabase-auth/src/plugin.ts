@@ -1,4 +1,4 @@
-import type { Config, Plugin } from 'payload'
+import { JWTAuthentication, type Config, type Plugin } from 'payload'
 
 import {
   createExchangeCodeCollection,
@@ -8,6 +8,7 @@ import { createExchangeCodeEndpoint } from './endpoints/exchangeCode.js'
 import { createExchangeEndpoint } from './endpoints/exchange.js'
 import { createSupabaseStrategy } from './strategy/createSupabaseStrategy.js'
 import { createSupabaseTokenVerifier } from './token/verifyToken.js'
+import { createSupabaseMfaVerifier } from './token/verifyMfa.js'
 import type { PayloadSupabaseAuthOptions } from './types.js'
 
 const adminComponentPath = '@dombestein-data/payload-supabase-auth/client'
@@ -42,31 +43,65 @@ export const supabaseAuthPlugin = (options: PayloadSupabaseAuthOptions): Plugin 
       throw new Error(`Supabase auth collection "${options.authCollection}" must have auth enabled`)
     }
 
-    if (!options.verifyToken && !options.supabaseUrl) {
+    const adminEnabled = Boolean(options.admin && options.admin.enabled !== false)
+
+    if (!options.verifyToken && !options.supabaseUrl && !adminEnabled) {
       throw new Error('supabaseAuthPlugin requires either "supabaseUrl" or "verifyToken"')
     }
 
-    const verifyToken =
+    const baseVerifyToken =
       options.verifyToken ??
-      createSupabaseTokenVerifier({
-        audience: options.audience,
-        issuer: options.issuer,
-        supabaseUrl: options.supabaseUrl!,
-      })
+      (options.supabaseUrl
+        ? createSupabaseTokenVerifier({
+            audience: options.audience,
+            issuer: options.issuer,
+            supabaseUrl: options.supabaseUrl,
+          })
+        : async () => {
+            throw new Error('Supabase token verification is not configured')
+          })
+    const mfaPolicy = options.mfa?.policy ?? (adminEnabled ? 'if-enrolled' : 'disabled')
+    const mfaPublishableKey =
+      options.mfa?.publishableKey?.trim() ?? options.admin?.publishableKey?.trim()
+    const mfaSupabaseUrl = options.supabaseUrl ?? options.admin?.supabaseUrl
+    const verifyToken = createSupabaseMfaVerifier({
+      policy: mfaPolicy,
+      publishableKey: mfaPublishableKey,
+      supabaseUrl: mfaSupabaseUrl,
+      verifyToken: baseVerifyToken,
+    })
     const strategy = createSupabaseStrategy({
       authCollection: options.authCollection,
       mapClaims: options.mapClaims,
+      generatePayloadPassword: options.disablePayloadLocalAuth === false,
       provisionUsers: options.provisionUsers,
       synchronizeUsers: options.synchronizeUsers,
       userIdField: options.userIdField,
       verifyToken,
     })
     const auth = collection.auth === true ? {} : collection.auth
+    const disablePayloadLocalAuth = options.disablePayloadLocalAuth !== false
+    const sessionStrategy = {
+      authenticate: JWTAuthentication,
+      name: 'supabase-session',
+    }
     const updatedCollection = {
       ...collection,
       auth: {
         ...auth,
-        strategies: [...(auth.strategies ?? []), strategy],
+        ...(disablePayloadLocalAuth
+          ? {
+              disableLocalStrategy: {
+                enableFields: true as const,
+                optionalPassword: true as const,
+              },
+            }
+          : {}),
+        strategies: [
+          ...(auth.strategies ?? []),
+          ...(disablePayloadLocalAuth ? [sessionStrategy] : []),
+          strategy,
+        ],
       },
     }
     const collections = [...incomingConfig.collections!]
@@ -168,6 +203,7 @@ export const supabaseAuthPlugin = (options: PayloadSupabaseAuthOptions): Plugin 
                   options.exchangeEndpointPath ?? '/supabase/exchange',
                 ),
                 heading: options.admin.heading,
+                mfaPolicy,
                 publishableKey,
                 supabaseUrl: adminSupabaseUrl,
               },

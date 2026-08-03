@@ -1,13 +1,13 @@
 # Test suite
 
-The package currently has 71 isolated tests across 13 files. They require
+The package currently has 82 isolated tests across 14 files. They require
 no database, Supabase project, environment variables, or network access.
 
 ## Plugin configuration
 
 File: `packages/payload-supabase-auth/tests/plugin.test.ts`
 
-The 15 plugin tests verify that:
+The 16 plugin tests verify that:
 
 - `supabaseAuthPlugin` returns a Payload config transformer.
 - Enabling the plugin installs a named `supabase-bearer` strategy.
@@ -25,6 +25,8 @@ The 15 plugin tests verify that:
 - Missing admin configuration produces a startup diagnostic and visual-warning
   props.
 - The admin component can be disabled independently.
+- Supabase-authoritative mode disables local credentials and adds a dedicated
+  Payload cookie-session strategy; local auth can be explicitly retained.
 
 The tests inject a verifier and operate on in-memory Payload configuration.
 
@@ -52,6 +54,14 @@ They cover:
 
 Remote JWKS networking is intentionally excluded. Tests pass a local `jose`
 JWKS resolver to exercise the same signature and claim-verification path.
+
+## MFA assurance
+
+File: `packages/payload-supabase-auth/tests/verifyMfa.test.ts`
+
+The seven tests cover disabled and required policies, AAL1 users with no
+verified factor, enrolled users requiring AAL2, AAL2 fast-path acceptance,
+failed enrollment lookup, and incomplete adaptive configuration.
 
 ## Linked-user resolution
 
@@ -85,7 +95,8 @@ The verifier and resolver are injected to keep these tests deterministic.
 
 File: `packages/payload-supabase-auth/tests/userLifecycle.test.ts`
 
-The six lifecycle tests cover default provisioning, custom claim mapping,
+The seven lifecycle tests cover default provisioning, password-free
+authoritative provisioning, custom claim mapping,
 missing-email rejection, changed-field synchronization, no-op synchronization,
 and protection of identity/password fields.
 
@@ -155,27 +166,27 @@ pnpm --filter dev exec tsc --noEmit
 application's integration and browser tests. Those broader tests may require a
 configured PostgreSQL database and Playwright browser dependencies.
 
-The dev integration suite contains eight live cases using PostgreSQL and a
+The dev integration suite contains nine live cases using PostgreSQL and a
 dedicated Supabase test user. It loads credentials from the gitignored
 `apps/dev/.env.test.local`. It verifies atomic concurrent exchange-code
-consumption, expired-row cleanup, successful exchange into an authenticating
-Payload cookie, replay rejection, and Payload logout/session revocation, then
-removes its test data afterward.
+consumption, expired-row cleanup, denial of Payload-local login and recovery,
+successful exchange into an authenticating Payload cookie, replay rejection,
+and Payload logout/session revocation, then removes its test data afterward.
 
 The five Playwright checks include a live Supabase email/password login through
 the package panel and verification that the resulting Payload session reaches
 the admin dashboard.
 
-The Playwright smoke suite contains four browser checks covering the Payload
+The remaining Playwright smoke suite contains four browser checks covering the Payload
 admin dashboard, user list, user creation view, and development frontend. Its
 helpers clean up both test data and their Payload database connection.
 
 ## Coverage boundaries
 
-The current suite does not perform live remote JWKS fetching or database-backed
-end-to-end bearer authentication. It does not cover adapter-specific concurrent
-provisioning behavior, UI-specific Supabase login flows, or admin-page
-customization owned by consuming applications.
+The current suite does not exercise a real enrolled MFA factor or every
+consumer-specific admin-page customization. The live test user covers the
+no-factor adaptive branch; deterministic tests cover factor challenge and AAL2
+enforcement.
 
-See [the verification guide](docs/verification.md) for complementary live
+See [the verification guide](verification.md) for complementary live
 PostgreSQL and Supabase checks.

@@ -57,9 +57,17 @@ duplicate links, and resolver exceptions produce no user from the Supabase
 strategy. Raw verification errors are not returned to the client by the
 strategy.
 
-This failure behavior allows another Payload strategy to run. The plugin does
-not disable Payload's local authentication strategy. Applications that retain
-local auth must secure and monitor that path independently.
+This failure behavior allows another Payload strategy to run. By default the
+plugin disables Payload-local login and password recovery, preventing a
+Supabase-managed user from creating an independent credential path.
+
+## MFA assurance
+
+With `mfa.policy: 'if-enrolled'`, AAL2 is required only when Supabase reports a
+verified factor. AAL1 remains valid for users without factors, so enrollment is
+not forced. Enrollment lookup failures fail closed. `required` always requires
+AAL2; `disabled` performs no assurance check. The check wraps the server bearer
+verifier, so clients cannot bypass it by skipping the admin UI.
 
 ## Token handling
 
@@ -110,8 +118,8 @@ removes expired database records before issuing a new code.
 
 Both lifecycle features are disabled by default. Provisioning requires a
 verified non-empty email and always derives the identity link from the verified
-subject, not from custom mapped data. A cryptographically random local password
-is generated and never exposed.
+subject, not from custom mapped data. Plugin-driven provisioning creates no
+local password in the default authoritative mode.
 
 Synchronization excludes `id`, `password`, `collection`, and the configured
 identity link field. Custom claim mappers remain trusted application code.
@@ -126,6 +134,8 @@ re-resolves after a conflicting insert.
 ## Operational recommendations
 
 - Keep Payload, `jose`, and runtime dependencies patched.
+- Add an explicit `access.admin` policy; automatic provisioning must not grant
+  every authenticated Supabase user Payload admin access.
 - Use a non-empty, securely generated `PAYLOAD_SECRET` for Payload's remaining
   auth features.
 - Alert on repeated invalid-token attempts and integrity errors at an

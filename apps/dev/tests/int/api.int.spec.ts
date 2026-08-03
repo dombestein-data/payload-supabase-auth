@@ -111,6 +111,28 @@ describe('API', () => {
     expect(users.totalDocs).toBe(0)
   })
 
+  it('does not expose Payload-local password login or recovery', async () => {
+    const login = await handleEndpoints({
+      config: payloadConfig,
+      request: new Request('http://localhost:3000/api/users/login', {
+        body: JSON.stringify({ email: testEmail, password: 'not-a-payload-credential' }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      }),
+    })
+    const forgotPassword = await handleEndpoints({
+      config: payloadConfig,
+      request: new Request('http://localhost:3000/api/users/forgot-password', {
+        body: JSON.stringify({ email: testEmail }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      }),
+    })
+
+    expect(login.ok).toBe(false)
+    expect(forgotPassword.ok).toBe(false)
+  })
+
   it('provisions once and resolves the same linked user thereafter', async () => {
     const first = await authenticate()
     const second = await authenticate()

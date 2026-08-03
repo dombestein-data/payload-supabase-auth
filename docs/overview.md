@@ -23,6 +23,9 @@ The package currently supports:
   sessions.
 - A same-origin POST exchange endpoint that creates a Payload session cookie.
 - An opt-in Supabase email/password panel on Payload's admin login page.
+- Adaptive TOTP/phone MFA for users with verified Supabase factors.
+- Supabase-authoritative credentials with Payload-local login and recovery
+  disabled by default.
 - Logout and session revocation through Payload's existing collection endpoint.
 
 The included UI is intentionally narrow. The host project still owns OAuth,
@@ -44,10 +47,14 @@ payload-supabase-auth/
 │       ├── tests/                   Isolated and stateful package tests
 │       └── dist/                    Compiled package output
 ├── docs/
+│   ├── README.md                    Documentation index
 │   ├── architecture.md              Detailed internal architecture
+│   ├── integration.md               Portable consumer implementation
 │   ├── overview.md                  This plain-language overview
+│   ├── publish.md                   Registry and release operations
 │   ├── security.md                  Trust boundaries and security rules
-│   ├── token-exchange.md             Exchange design and remaining work
+│   ├── testing.md                   Test inventory and coverage boundaries
+│   ├── token-exchange.md            Exchange protocol design
 │   └── verification.md              Local and live verification guide
 ├── .changeset/                       Package version and release notes
 ├── .github/workflows/
@@ -57,8 +64,9 @@ payload-supabase-auth/
 ├── prettier.config.mjs               Shared formatting defaults
 ├── tsconfig.base.json                Shared TypeScript compiler defaults
 ├── vitest.workspace.ts               Combined package and live test projects
+├── agents.md                          Contributor and agent operating rules
 ├── README.md                        Installation and public usage
-└── TESTS.md                         Test inventory and coverage boundaries
+└── LICENSE                          Repository license
 ```
 
 ## Package structure
@@ -68,9 +76,14 @@ src/
 ├── plugin.ts                        Installs the strategy into Payload
 ├── types.ts                         Top-level plugin options
 ├── index.ts                         Public package exports
+├── client.ts                        Browser-safe package exports
+├── admin/
+│   ├── SupabaseLogin.tsx            Payload admin login and MFA panel
+│   └── createAdminSession.ts        Browser auth, MFA, and exchange helpers
 ├── token/
 │   ├── claims.ts                    Supabase JWT claim types
 │   ├── extractBearerToken.ts        Reads Authorization: Bearer
+│   ├── verifyMfa.ts                 Enforces configured assurance policy
 │   └── verifyToken.ts               Verifies JWT signature and claims
 ├── strategy/
 │   └── createSupabaseStrategy.ts    Coordinates the authentication flow
@@ -148,7 +161,7 @@ The default data contains:
 
 - `email` from the verified claims.
 - `supabaseUserId` from the verified `sub`.
-- A strong random local password that is never returned.
+- No Payload password in the default Supabase-authoritative mode.
 
 Provisioning requires an email. The subject link cannot be overridden by a
 custom claim mapper.
@@ -290,6 +303,8 @@ supabaseAuthPlugin({
 | `authCollection`             | Payload auth collection containing linked users.    |
 | `supabaseUrl`                | Project used for issuer and JWKS verification.      |
 | `admin`                      | Opt-in Payload admin email/password login panel.    |
+| `mfa`                        | Adaptive, required, or disabled assurance policy.   |
+| `disablePayloadLocalAuth`    | Disables Payload login/recovery by default.         |
 | `issuer`                     | Optional expected JWT issuer override.              |
 | `audience`                   | Optional expected audience override.                |
 | `userIdField`                | Link field; defaults to `supabaseUserId`.           |
@@ -313,8 +328,8 @@ The bearer strategy fails closed. Missing headers, malformed credentials,
 invalid tokens, unlinked users, duplicate links, provisioning failures, and
 synchronization failures produce no Supabase-authenticated Payload user.
 
-Payload may then try another configured strategy. The plugin does not disable
-Payload local authentication.
+Payload may then try another configured strategy. Payload-local login and
+password recovery are disabled by default so Supabase remains authoritative.
 
 ## Verification status
 
@@ -325,5 +340,5 @@ concurrent provisioning, exchange expiry, and concurrent single-use
 consumption. The live suite also exercises exchange-to-cookie authentication
 through Payload when its PostgreSQL and Supabase dependencies are available.
 
-See [TESTS.md](../TESTS.md) and [verification.md](verification.md) for the
+See [testing.md](testing.md) and [verification.md](verification.md) for the
 release-gate commands and live checks.

@@ -16,7 +16,9 @@ Payload CMS 3 auth collection. It provides:
 - Short-lived, single-use exchange codes stored through Payload PostgreSQL.
 - Payload-compatible JWT and HttpOnly session-cookie creation.
 - An opt-in Supabase email/password panel on Payload's admin login page.
-- Continued use of Payload's standard logout and local credentials flow.
+- Supabase-authoritative credentials with Payload-local login/recovery disabled
+  by default, while Payload session logout remains supported.
+- Adaptive Supabase MFA enforcement for enrolled users.
 
 The repository is a pnpm monorepo. The public library is under
 `packages/payload-supabase-auth`; `apps/dev` is the integration fixture and
@@ -25,7 +27,7 @@ reference Payload application.
 ## Supported runtime
 
 - Node.js 20.9 or newer.
-- Payload `^3.86.0`.
+- Payload `^3.87.0`.
 - React 19 for the optional client entry.
 - PostgreSQL for exchange-code storage and Payload cookie-session exchange.
 - Any Payload adapter for bearer-only mode with `enableExchangeCodes: false`.
@@ -51,10 +53,10 @@ for Payload 4 until it has been deliberately tested and peer ranges updated.
 │   │   └── types.ts     Public plugin options
 │   └── tests/           Deterministic unit and stateful boundary tests
 ├── apps/dev/            Real Payload, PostgreSQL, Supabase, and browser fixture
-├── docs/                Architecture, security, exchange, and verification
-├── integration.md       Consumer implementation runbook
-├── publish.md           Public/private release runbook
-└── TESTS.md             Test inventory
+├── docs/                All implementation, release, and test documentation
+├── agents.md            Repository operating rules for contributors and agents
+├── LICENSE              Repository license
+└── README.md            Public project entry point
 ```
 
 ## Authentication method
@@ -94,9 +96,10 @@ in memory, and performs the code exchange. It never receives a service-role
 key.
 
 The plugin appends the component through Payload's `beforeLogin` configuration
-and preserves existing components. It also preserves Payload local login because
-the standard local strategy owns logout/session-ID revocation. Do not disable
-local auth without implementing and testing a replacement logout lifecycle.
+and preserves existing components. It disables Payload-local login and password
+recovery using object-form `disableLocalStrategy`, then explicitly retains JWT
+cookie authentication and standard logout/session-ID revocation. Adaptive MFA
+is enforced in both the panel and server verifier.
 
 Missing admin configuration must remain visible both in the server console and
 on the login page. Do not add runtime-editable secret or environment settings.
@@ -133,6 +136,7 @@ The dev fixture uses:
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_TEST_EMAIL`
 - `SUPABASE_TEST_PASSWORD`
+- `SUPABASE_ADMIN_EMAILS` (server-side comma-separated admin allowlist)
 
 Real values belong in ignored local files or secret stores. Examples may contain
 placeholders only. Use a dedicated non-production Supabase project and user for
@@ -222,13 +226,14 @@ order, and rollback consequences.
 Keep these documents aligned:
 
 - `README.md`: public overview and API reference.
-- `integration.md`: portable consumer implementation.
-- `publish.md`: registry/release operations.
+- `docs/README.md`: documentation index.
+- `docs/integration.md`: portable consumer implementation.
+- `docs/publish.md`: registry/release operations.
 - `docs/architecture.md`: internal composition and sequences.
 - `docs/security.md`: threats, invariants, and host responsibilities.
 - `docs/token-exchange.md`: exchange protocol details.
 - `docs/overview.md`: plain-language system map.
-- `docs/verification.md` and `TESTS.md`: executable verification status.
+- `docs/verification.md` and `docs/testing.md`: executable verification status.
 - `packages/payload-supabase-auth/README.md`: concise npm artifact guidance.
 
 Do not document planned behavior as implemented. Update test counts only after
@@ -243,7 +248,7 @@ credentials configured outside the repository.
 
 The GitHub release workflow is manual (`workflow_dispatch`). Keep it manual
 unless the maintainer explicitly chooses another release policy. Follow
-`publish.md` for public npm, private npm, or GitHub Packages.
+`docs/publish.md` for public npm, private npm, or GitHub Packages.
 
 Never publish from a dirty worktree or reuse a version number. Never change
 package visibility casually. Prefer npm trusted publishing when the workflow

@@ -4,10 +4,7 @@ import { expect } from '@playwright/test'
 export interface LoginOptions {
   page: Page
   serverURL?: string
-  user: {
-    email: string
-    password: string
-  }
+  user?: { email: string; password: string }
 }
 
 /**
@@ -16,13 +13,22 @@ export interface LoginOptions {
 export async function login({
   page,
   serverURL = 'http://localhost:3000',
-  user,
+  user = {
+    email: process.env.SUPABASE_TEST_EMAIL ?? '',
+    password: process.env.SUPABASE_TEST_PASSWORD ?? '',
+  },
 }: LoginOptions): Promise<void> {
+  if (!user.email || !user.password) {
+    throw new Error('Supabase browser-test credentials are not configured')
+  }
+
   await page.goto(`${serverURL}/admin/login`)
 
-  await page.fill('#field-email', user.email)
-  await page.fill('#field-password', user.password)
-  await page.locator('#field-password').press('Enter')
+  await expect(page.locator('#field-email')).toHaveCount(0)
+  await expect(page.locator('#field-password')).toHaveCount(0)
+  await page.fill('#supabase-email', user.email)
+  await page.fill('#supabase-password', user.password)
+  await page.getByRole('button', { name: 'Sign in with Supabase' }).click()
 
   await page.waitForURL(`${serverURL}/admin`)
 

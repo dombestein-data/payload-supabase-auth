@@ -31,7 +31,15 @@ describe('supabaseAuthPlugin', () => {
 
     expect(transformed).not.toBe(config)
     expect(transformed.collections?.[0]?.auth).toMatchObject({
+      disableLocalStrategy: {
+        enableFields: true,
+        optionalPassword: true,
+      },
       strategies: [
+        {
+          name: 'supabase-session',
+          authenticate: expect.any(Function),
+        },
         {
           name: 'supabase-bearer',
           authenticate: expect.any(Function),
@@ -39,6 +47,16 @@ describe('supabaseAuthPlugin', () => {
       ],
     })
     expect(config.collections?.[0]?.auth).toBe(true)
+  })
+
+  it('can explicitly preserve Payload local password authentication', async () => {
+    const transformed = await supabaseAuthPlugin({
+      authCollection: 'users',
+      disablePayloadLocalAuth: false,
+      verifyToken,
+    })(createConfig())
+
+    expect(transformed.collections?.[0]?.auth).not.toHaveProperty('disableLocalStrategy')
   })
 
   it('preserves existing auth options and strategies', async () => {
@@ -69,6 +87,7 @@ describe('supabaseAuthPlugin', () => {
     expect(auth).toMatchObject({ tokenExpiration: 300 })
     expect(auth && auth !== true ? auth.strategies : []).toEqual([
       existingStrategy,
+      expect.objectContaining({ name: 'supabase-session' }),
       expect.objectContaining({ name: 'supabase-bearer' }),
     ])
   })
@@ -230,6 +249,7 @@ describe('supabaseAuthPlugin', () => {
           exchangeCodeEndpoint: '/service/auth/code',
           exchangeEndpoint: '/service/auth/session',
           heading: undefined,
+          mfaPolicy: 'if-enrolled',
           publishableKey: 'public-test-key',
           supabaseUrl: 'https://project.supabase.co',
         },

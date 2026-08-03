@@ -43,7 +43,9 @@ Before the first public release:
 
 ## Versioning with Changesets
 
-The package starts at `0.0.0`. The pending major changeset produces `1.0.0`.
+The package is versioned at `1.0.0`; its initial Changesets were applied and
+recorded in `packages/payload-supabase-auth/CHANGELOG.md`. New user-visible work
+must add a new changeset before the next release.
 
 Inspect the release plan:
 

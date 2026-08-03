@@ -125,6 +125,7 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  role: 'admin' | 'member';
   /**
    * The linked Supabase Auth user ID (the JWT subject claim).
    */
@@ -262,6 +263,7 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  role?: T;
   supabaseUserId?: T;
   updatedAt?: T;
   createdAt?: T;

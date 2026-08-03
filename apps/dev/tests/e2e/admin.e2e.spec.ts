@@ -1,21 +1,19 @@
 import { test, expect, Page } from '@playwright/test'
+import { cleanupLinkedSupabaseTestUser } from '../helpers/cleanupLinkedUser'
 import { login } from '../helpers/login'
-import { seedTestUser, cleanupTestUser, testUser } from '../helpers/seedUser'
 
 test.describe('Admin Panel', () => {
   let page: Page
 
   test.beforeAll(async ({ browser }) => {
-    await seedTestUser()
-
     const context = await browser.newContext()
     page = await context.newPage()
 
-    await login({ page, user: testUser })
+    await login({ page })
   })
 
   test.afterAll(async () => {
-    await cleanupTestUser()
+    await cleanupLinkedSupabaseTestUser()
   })
 
   test('can navigate to dashboard', async () => {

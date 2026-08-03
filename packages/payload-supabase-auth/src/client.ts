@@ -1,4 +1,18 @@
 export { SupabaseLogin } from './admin/SupabaseLogin.js'
-export { createSupabaseAdminSession } from './admin/createAdminSession.js'
+export {
+  challengeSupabaseMfa,
+  createSupabaseAdminSession,
+  exchangeSupabaseAdminSession,
+  signInWithSupabasePassword,
+  verifySupabaseMfa,
+} from './admin/createAdminSession.js'
 export type { SupabaseLoginProps } from './admin/SupabaseLogin.js'
-export type { CreateSupabaseAdminSessionOptions } from './admin/createAdminSession.js'
+export type {
+  ChallengeSupabaseMfaOptions,
+  CreateSupabaseAdminSessionOptions,
+  ExchangeSupabaseAdminSessionOptions,
+  SignInWithSupabasePasswordOptions,
+  SupabaseAdminMfaFactor,
+  SupabasePasswordSignIn,
+  VerifySupabaseMfaOptions,
+} from './admin/createAdminSession.js'

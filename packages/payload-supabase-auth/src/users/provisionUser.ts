@@ -11,6 +11,8 @@ export type ProvisionUserOptions = {
   claims: SupabaseJwtClaims
   mapClaims?: ClaimMapper
   userIdField?: string
+  /** Generate a private local password. Disable for Supabase-authoritative users. */
+  generatePayloadPassword?: boolean
 }
 
 /** Creates a Payload user linked to a verified Supabase identity. */
@@ -25,14 +27,17 @@ export const provisionUser = async (
     throw new TypeError('Cannot provision a Payload user without an email claim')
   }
 
+  const password =
+    options.generatePayloadPassword === false
+      ? {}
+      : { password: randomBytes(32).toString('base64url') }
+
   return payload.create({
     collection: options.authCollection as AuthCollectionSlug,
     data: {
       ...mappedData,
       email,
-      // Payload local auth requires a password. This random value is never
-      // returned and cannot be used as a shared or predictable credential.
-      password: randomBytes(32).toString('base64url'),
+      ...password,
       [options.userIdField ?? 'supabaseUserId']: options.claims.sub,
     } as never,
     depth: 0,

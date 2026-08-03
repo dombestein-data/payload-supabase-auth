@@ -35,7 +35,8 @@ pnpm --filter dev test:int
 
 The integration suite confirms the unique `supabaseUserId` index,
 adapter-level concurrent insert behavior, collection hooks, Payload validation
-of generated random passwords, atomic exchange-code consumption, expired-code
+of password-free authoritative provisioning, adaptive MFA enforcement, atomic
+exchange-code consumption, expired-code
 cleanup, authenticated code issuance, exchange into a working Payload session
 cookie, replay rejection, and Payload logout/session revocation.
 
@@ -82,13 +83,13 @@ pnpm --filter @dombestein-data/payload-supabase-auth pack
 pnpm changeset status
 ```
 
-The pending v1 changeset must resolve the public package from `0.0.0` to
-`1.0.0`. The tarball must contain compiled `dist` JavaScript and declarations,
+The public package must be version `1.0.0`. The tarball must contain compiled
+`dist` JavaScript and declarations,
 plus its package README and MIT license.
 
-## Local-auth check
+## Credential-authority and MFA checks
 
-The plugin preserves Payload's local strategy. Verify that existing local users
-still behave as intended, provisioned users have no known/shared password, and
-password-reset behavior matches product policy. Disabling local auth should be
-a separate reviewed configuration change.
+Verify that Payload-local login and password-recovery paths cannot authenticate
+Supabase-managed users, while Payload logout still revokes the issued session.
+Verify both adaptive MFA branches: users without factors may use AAL1, while
+users with a verified factor must present AAL2.

@@ -16,6 +16,7 @@ export { createExchangeCodeEndpoint } from './endpoints/exchangeCode.js'
 export { createExchangeEndpoint } from './endpoints/exchange.js'
 export { extractBearerToken } from './token/extractBearerToken.js'
 export { createSupabaseTokenVerifier } from './token/verifyToken.js'
+export { createSupabaseMfaVerifier } from './token/verifyMfa.js'
 export { resolveLinkedUser } from './users/resolveLinkedUser.js'
 export { mapDefaultClaims } from './users/claimMapping.js'
 export { provisionUser } from './users/provisionUser.js'
@@ -23,7 +24,16 @@ export { synchronizeUser } from './users/synchronizeUser.js'
 export type { CreateSupabaseStrategyOptions } from './strategy/createSupabaseStrategy.js'
 export type { SupabaseJwtClaims } from './token/claims.js'
 export type { SupabaseTokenVerifier, SupabaseTokenVerifierOptions } from './token/verifyToken.js'
-export type { PayloadSupabaseAuthOptions, SupabaseAdminOptions } from './types.js'
+export type {
+  PayloadSupabaseAuthOptions,
+  SupabaseAdminOptions,
+  SupabaseMfaOptions,
+} from './types.js'
+export type {
+  CreateSupabaseMfaVerifierOptions,
+  SupabaseMfaFactor,
+  SupabaseMfaPolicy,
+} from './token/verifyMfa.js'
 export type { ConsumeExchangeCodeOptions } from './exchange/consumeExchangeCode.js'
 export type { CreateExchangeCodeOptions } from './exchange/createExchangeCode.js'
 export type {

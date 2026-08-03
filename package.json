@@ -1,6 +1,6 @@
 {
   "name": "payload-supabase-auth-workspace",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Development workspace for @dombestein-data/payload-supabase-auth",
   "license": "MIT",
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
-    "prettier": "^3.4.2",
-    "vitest": "4.0.18"
+    "prettier": "^3.9.6",
+    "vitest": "4.1.10"
   }
 }

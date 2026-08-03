@@ -3,7 +3,14 @@
 import type { CSSProperties, FormEvent } from 'react'
 import { useMemo, useState } from 'react'
 
-import { createSupabaseAdminSession } from './createAdminSession.js'
+import {
+  challengeSupabaseMfa,
+  exchangeSupabaseAdminSession,
+  signInWithSupabasePassword,
+  type SupabaseAdminMfaFactor,
+  verifySupabaseMfa,
+} from './createAdminSession.js'
+import type { SupabaseMfaPolicy } from '../token/verifyMfa.js'
 
 export type SupabaseLoginProps = {
   adminRoute?: string
@@ -11,6 +18,7 @@ export type SupabaseLoginProps = {
   exchangeCodeEndpoint?: string
   exchangeEndpoint?: string
   heading?: string
+  mfaPolicy?: SupabaseMfaPolicy
   publishableKey?: string
   supabaseUrl?: string
 }
@@ -35,9 +43,6 @@ const styles: Record<string, CSSProperties> = {
     minHeight: '42px',
     padding: '0.7rem 1rem',
   },
-  divider: { alignItems: 'center', display: 'flex', gap: '0.75rem', margin: '1.5rem 0' },
-  dividerLine: { background: 'var(--theme-elevation-150)', flex: 1, height: '1px' },
-  dividerText: { color: 'var(--theme-elevation-500)', fontSize: '0.85rem' },
   field: { display: 'grid', gap: '0.4rem' },
   form: { display: 'grid', gap: '1rem' },
   input: {
@@ -72,12 +77,19 @@ export const SupabaseLogin = ({
   exchangeCodeEndpoint,
   exchangeEndpoint,
   heading = 'Sign in with Supabase',
+  mfaPolicy = 'if-enrolled',
   publishableKey,
   supabaseUrl,
 }: SupabaseLoginProps) => {
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string>()
   const [password, setPassword] = useState('')
+  const [mfa, setMfa] = useState<{
+    accessToken: string
+    challengeId: string
+    factor: SupabaseAdminMfaFactor
+  }>()
+  const [verificationCode, setVerificationCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const configurationError = useMemo(() => {
     if (!supabaseUrl || !publishableKey || !exchangeCodeEndpoint || !exchangeEndpoint) {
@@ -104,14 +116,45 @@ export const SupabaseLogin = ({
     setSubmitting(true)
 
     try {
-      await createSupabaseAdminSession({
-        email,
-        exchangeCodeEndpoint,
-        exchangeEndpoint,
-        password,
-        publishableKey,
-        supabaseUrl,
-      })
+      if (mfa) {
+        const accessToken = await verifySupabaseMfa({
+          ...mfa,
+          code: verificationCode,
+          publishableKey,
+          supabaseUrl,
+        })
+        await exchangeSupabaseAdminSession({ accessToken, exchangeCodeEndpoint, exchangeEndpoint })
+      } else {
+        const signIn = await signInWithSupabasePassword({
+          email,
+          mfaPolicy,
+          password,
+          publishableKey,
+          supabaseUrl,
+        })
+
+        if (signIn.requiresMfa) {
+          const factor = signIn.factors[0]
+          if (!factor) throw new Error('No supported MFA factor is available.')
+
+          const challengeId = await challengeSupabaseMfa({
+            accessToken: signIn.accessToken,
+            factor,
+            publishableKey,
+            supabaseUrl,
+          })
+          setMfa({ accessToken: signIn.accessToken, challengeId, factor })
+          setPassword('')
+          setSubmitting(false)
+          return
+        }
+
+        await exchangeSupabaseAdminSession({
+          accessToken: signIn.accessToken,
+          exchangeCodeEndpoint,
+          exchangeEndpoint,
+        })
+      }
       window.location.assign(getSafeRedirect(adminRoute))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign-in failed. Please try again.')
@@ -132,30 +175,57 @@ export const SupabaseLogin = ({
         </p>
       ) : (
         <form onSubmit={submit} style={styles.form}>
-          <label htmlFor="supabase-email" style={styles.field}>
-            <span style={styles.label}>Email</span>
-            <input
-              autoComplete="username"
-              id="supabase-email"
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              style={styles.input}
-              type="email"
-              value={email}
-            />
-          </label>
-          <label htmlFor="supabase-password" style={styles.field}>
-            <span style={styles.label}>Password</span>
-            <input
-              autoComplete="current-password"
-              id="supabase-password"
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              style={styles.input}
-              type="password"
-              value={password}
-            />
-          </label>
+          {mfa ? (
+            <>
+              <p style={styles.intro}>
+                Enter the code from{' '}
+                {mfa.factor.friendlyName ??
+                  (mfa.factor.factorType === 'phone'
+                    ? (mfa.factor.phone ?? 'your phone')
+                    : 'your authenticator app')}
+                .
+              </p>
+              <label htmlFor="supabase-mfa-code" style={styles.field}>
+                <span style={styles.label}>Verification code</span>
+                <input
+                  autoComplete="one-time-code"
+                  id="supabase-mfa-code"
+                  inputMode="numeric"
+                  onChange={(event) => setVerificationCode(event.target.value)}
+                  required
+                  style={styles.input}
+                  value={verificationCode}
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label htmlFor="supabase-email" style={styles.field}>
+                <span style={styles.label}>Email</span>
+                <input
+                  autoComplete="username"
+                  id="supabase-email"
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  style={styles.input}
+                  type="email"
+                  value={email}
+                />
+              </label>
+              <label htmlFor="supabase-password" style={styles.field}>
+                <span style={styles.label}>Password</span>
+                <input
+                  autoComplete="current-password"
+                  id="supabase-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  style={styles.input}
+                  type="password"
+                  value={password}
+                />
+              </label>
+            </>
+          )}
           <div style={styles.actions}>
             {error ? (
               <p role="alert" style={styles.alert}>
@@ -167,17 +237,17 @@ export const SupabaseLogin = ({
               style={{ ...styles.button, opacity: submitting ? 0.65 : 1 }}
               type="submit"
             >
-              {submitting ? 'Signing in…' : 'Sign in with Supabase'}
+              {submitting
+                ? mfa
+                  ? 'Verifying…'
+                  : 'Signing in…'
+                : mfa
+                  ? 'Verify and sign in'
+                  : 'Sign in with Supabase'}
             </button>
           </div>
         </form>
       )}
-
-      <div aria-hidden="true" style={styles.divider}>
-        <span style={styles.dividerLine} />
-        <span style={styles.dividerText}>or use Payload credentials</span>
-        <span style={styles.dividerLine} />
-      </div>
     </section>
   )
 }

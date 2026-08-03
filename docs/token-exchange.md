@@ -75,7 +75,9 @@ removes expired records with `cleanupExpired()`.
 ## Browser integration
 
 The package's optional Payload admin login panel implements the password-based
-version of this flow. A host application can also sign in with its own Supabase
+version of this flow and completes TOTP or phone MFA when a verified factor is
+enrolled. Server-side assurance checks reject an AAL1 exchange for such a user.
+A host application can also sign in with its own Supabase
 client, call the code endpoint with the resulting bearer token, exchange the
 returned code, and then enter its authenticated Payload experience. Both paths
 log out through Payload's existing auth-collection logout endpoint.

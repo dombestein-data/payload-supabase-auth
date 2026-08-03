@@ -24,6 +24,7 @@ export type CreateSupabaseStrategyOptions = {
   resolveUser?: typeof resolveLinkedUser
 
   provisionUsers?: boolean
+  generatePayloadPassword?: boolean
   synchronizeUsers?: boolean
   mapClaims?: ClaimMapper
   provisionUser?: (
@@ -69,6 +70,7 @@ export const createSupabaseStrategy = (options: CreateSupabaseStrategyOptions): 
             user = await createUser(payload, {
               authCollection: options.authCollection,
               claims,
+              generatePayloadPassword: options.generatePayloadPassword,
               mapClaims: options.mapClaims,
               userIdField: options.userIdField,
             })

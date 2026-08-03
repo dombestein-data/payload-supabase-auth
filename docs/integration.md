@@ -13,7 +13,7 @@ Payload's admin login page.
 | Full integration | Payload PostgreSQL adapter | Bearer authentication, provisioning, synchronization, exchange endpoints, Payload cookie sessions, and optional admin login panel. |
 | Bearer only      | Any Payload adapter        | Bearer authentication, provisioning, and synchronization. No exchange collection, cookie exchange, or package admin login panel.   |
 
-The package supports Node.js 20.9 or newer, Payload `^3.86.0`, and React 19.
+The package supports Node.js 20.9 or newer, Payload `^3.87.0`, and React 19.
 The host project must use an authentication-enabled Payload collection.
 
 The full integration currently depends on PostgreSQL because one-time exchange
@@ -92,10 +92,21 @@ import type { CollectionConfig } from 'payload'
 export const Users: CollectionConfig = {
   slug: 'users',
   auth: true,
+  access: {
+    admin: ({ req: { user } }) => user?.role === 'admin',
+  },
   admin: {
     useAsTitle: 'email',
   },
   fields: [
+    {
+      name: 'role',
+      type: 'select',
+      defaultValue: 'member',
+      options: ['admin', 'member'],
+      required: true,
+      saveToJWT: true,
+    },
     {
       name: 'supabaseUserId',
       type: 'text',
@@ -114,7 +125,10 @@ export const Users: CollectionConfig = {
 }
 ```
 
-The field-level access rules are optional defense in depth. The plugin uses
+The `access.admin` rule is required security policy: without it, every
+automatically provisioned user could enter Payload admin. Adapt the rule to
+your trusted role model. The field-level link rules are optional defense in
+depth. The plugin uses
 Payload's local API with `overrideAccess: true` after verifying the token, so it
 can still provision and link users. If existing hooks require this field, make
 sure they permit plugin operations.
@@ -167,6 +181,10 @@ export default buildConfig({
         publishableKey: supabasePublishableKey,
       },
       authCollection: Users.slug,
+      disablePayloadLocalAuth: true,
+      mfa: {
+        policy: 'if-enrolled',
+      },
       provisionUsers: true,
       supabaseUrl,
       synchronizeUsers: true,
@@ -181,7 +199,9 @@ This configuration adds:
 - The hidden `supabase-exchange-codes` collection.
 - `POST /api/supabase/exchange-code`.
 - `POST /api/supabase/exchange`.
-- A Supabase email/password panel above Payload's existing admin login form.
+- A Supabase email/password panel with adaptive MFA.
+- Supabase-authoritative credentials: Payload-local login and password
+  recovery are disabled while normal Payload session logout remains available.
 
 The plugin logs an error and renders a visible admin-page warning if the admin
 URL, publishable key, or exchange endpoints are missing. It does not expose a
@@ -219,10 +239,11 @@ supabaseAuthPlugin({
 })
 ```
 
-The package intentionally preserves Payload's local credentials form. Payload
-owns the standard session-ID revocation performed by its logout endpoint.
-Removing local authentication requires a separately designed login and logout
-lifecycle.
+The default `if-enrolled` MFA policy requires AAL2 only when the user has a
+verified Supabase TOTP or phone factor. Users without factors are not forced to
+enroll. Use `required` to mandate MFA for every user or `disabled` only after a
+security review. Credential changes and recovery belong in Supabase or the
+upstream account system, not Payload.
 
 ## 6. Configure bearer-only mode
 
@@ -298,6 +319,22 @@ export default buildConfig({
     }),
   ],
 })
+```
+
+Credentialed cookies sent across sites also require the auth collection to use
+`SameSite=None` and `Secure`:
+
+```ts
+export const Users: CollectionConfig = {
+  slug: 'users',
+  auth: {
+    cookies: {
+      sameSite: 'None',
+      secure: true,
+    },
+  },
+  // access and fields...
+}
 ```
 
 Use exact HTTPS origins without paths. Do not use `*` with credentialed
@@ -446,8 +483,10 @@ Before enabling production traffic:
    logout.
 6. Confirm a replayed exchange code fails.
 7. Confirm a tampered or wrong-project token does not create a user.
-8. Confirm local Payload login still behaves according to project policy.
-9. Monitor failures without logging credentials or tokens.
+8. Confirm Payload-local login and recovery are unavailable.
+9. Test both tenant-relevant MFA branches: no factor at AAL1 and an enrolled
+   factor at AAL2.
+10. Monitor failures without logging credentials or tokens.
 
 ## 15. Troubleshooting
 

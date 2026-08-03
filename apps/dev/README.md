@@ -5,7 +5,8 @@ This Payload application exercises the workspace version of
 
 It uses PostgreSQL and defines an auth-enabled `users` collection with a unique,
 indexed `supabaseUserId` field. The plugin installs bearer-token authentication
-for that collection.
+for that collection, disables Payload-local credentials, and uses Supabase as
+the authoritative identity provider.
 
 ## Setup
 
@@ -25,6 +26,7 @@ Configure:
 | `PAYLOAD_SECRET`           | Secure secret used by Payload.                                        |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project base URL, such as `https://project-ref.supabase.co`. |
 | `SUPABASE_PUBLISHABLE_KEY` | Browser-safe key used by the admin login panel.                       |
+| `SUPABASE_ADMIN_EMAILS`    | Optional comma-separated server-side admin email allowlist.           |
 
 Live integration tests additionally load `SUPABASE_TEST_EMAIL` and
 `SUPABASE_TEST_PASSWORD` from `.env.test.local` and may override the URL and
@@ -38,7 +40,8 @@ The application is available at `http://localhost:3000`.
 The development config enables provisioning and email synchronization. The
 first valid bearer request creates a Payload user whose `supabaseUserId` equals
 the Supabase Auth user's UUID (`sub` in the access token). Later requests keep
-its email aligned with the verified claim.
+its email aligned with the verified claim. Only users mapped to the `admin`
+role can enter Payload admin.
 
 Then call a Payload route with:
 
@@ -59,7 +62,9 @@ application. Log out with `POST /api/users/logout`.
 
 The Payload login page also contains the package's Supabase email/password
 panel. It performs this exchange automatically and redirects to `/admin` after
-the HttpOnly Payload cookie is created.
+the HttpOnly Payload cookie is created. Users with a verified MFA factor must
+complete it; users without one are not forced to enroll. Payload-local login
+and password recovery are unavailable.
 
 ## Useful commands
 
@@ -72,3 +77,9 @@ pnpm --filter dev test:e2e
 
 The browser and integration suites may require Playwright dependencies and a
 running PostgreSQL database.
+
+Start the local database from the repository root with:
+
+```bash
+docker compose -f apps/dev/docker-compose.yml up -d
+```

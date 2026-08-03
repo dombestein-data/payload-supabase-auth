@@ -41,7 +41,7 @@ Published-package installation will use:
 pnpm add @dombestein-data/payload-supabase-auth
 ```
 
-The package requires Node.js 20.9 or newer and Payload 3.86 or newer within the
+The package requires Node.js 20.9 or newer and Payload 3.87 or newer within the
 current Payload 3 major version.
 
 ## Payload configuration
@@ -54,7 +54,18 @@ import type { CollectionConfig } from 'payload'
 export const Users: CollectionConfig = {
   slug: 'users',
   auth: true,
+  access: {
+    admin: ({ req: { user } }) => user?.role === 'admin',
+  },
   fields: [
+    {
+      name: 'role',
+      type: 'select',
+      defaultValue: 'member',
+      options: ['admin', 'member'],
+      required: true,
+      saveToJWT: true,
+    },
     {
       name: 'supabaseUserId',
       type: 'text',
@@ -84,6 +95,12 @@ export default buildConfig({
         publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
       },
       authCollection: Users.slug,
+      disablePayloadLocalAuth: true,
+      mapClaims: (claims) => ({
+        email: claims.email,
+        role: claims.app_metadata?.role === 'admin' ? 'admin' : 'member',
+      }),
+      mfa: { policy: 'if-enrolled' },
       provisionUsers: true,
       supabaseUrl: process.env.SUPABASE_URL,
       synchronizeUsers: true,
@@ -96,17 +113,22 @@ export default buildConfig({
 `https://project-ref.supabase.co`. It is required unless a custom
 `verifyToken` function is supplied.
 
-Providing `admin` adds a Supabase email/password form above Payload's normal
-admin login form. `publishableKey` must be a browser-safe Supabase publishable
+Providing `admin` replaces Payload-local credential entry with a Supabase
+email/password form. `publishableKey` must be a browser-safe Supabase publishable
 key (or legacy anon key), never a service-role or secret key. The value is read
 from server configuration and serialized to the login component; there is no
 runtime settings screen. If the URL, publishable key, or exchange endpoints are
 missing, the plugin logs a startup error and the login page shows a
 configuration warning.
 
-The local Payload form remains available because Payload's standard logout
-path owns session-ID revocation. Fully replacing local authentication requires
-a separately reviewed custom logout lifecycle.
+Supabase is authoritative by default: the plugin disables Payload-local login,
+forgot-password, and reset-password while retaining auth fields, sessions, and
+normal logout. Set `disablePayloadLocalAuth: false` only for a deliberately
+separate Payload-local identity policy.
+
+The admin flow uses adaptive MFA by default. Users without a verified factor
+may continue at AAL1. If a verified TOTP or phone factor exists, the panel
+challenges it and the server requires an AAL2 token.
 
 When provisioning is disabled, the linked Payload user must exist before
 authentication. Its `supabaseUserId` must equal the Supabase user's UUID found
@@ -125,6 +147,8 @@ adapter, set `enableExchangeCodes: false`.
 | `authCollection`             | `string`                | Required                             | Payload auth collection containing linked users.                      |
 | `supabaseUrl`                | `string`                | Required unless `verifyToken` is set | Supabase project base URL.                                            |
 | `admin`                      | `SupabaseAdminOptions`  | Disabled                             | Adds the Supabase panel to Payload's admin login page when provided.  |
+| `mfa`                        | `SupabaseMfaOptions`    | `if-enrolled` with admin             | Controls server-side MFA assurance checks.                            |
+| `disablePayloadLocalAuth`    | `boolean`               | `true`                               | Disables Payload login and password recovery.                         |
 | `issuer`                     | `string`                | `<supabaseUrl>/auth/v1`              | Expected JWT issuer.                                                  |
 | `audience`                   | `string \| string[]`    | `authenticated`                      | Expected JWT audience.                                                |
 | `userIdField`                | `string`                | `supabaseUserId`                     | Payload field storing the Supabase subject.                           |
@@ -147,9 +171,8 @@ missing, is not auth-enabled, or has neither `supabaseUrl` nor a custom
 verifier. Existing auth settings and strategies are preserved, and the
 Supabase strategy is appended.
 
-Provisioning requires a non-empty email claim. Payload local auth requires a
-password when creating an auth user, so the plugin generates a strong random
-password which is never returned. Claim synchronization never writes `id`,
+Provisioning requires a non-empty email claim. In the default authoritative
+mode it creates no Payload password. Claim synchronization never writes `id`,
 `password`, `collection`, or the configured Supabase link field.
 
 Custom claim mapping can populate application fields:
@@ -177,6 +200,7 @@ The package also exports:
 
 - `extractBearerToken(headers)` for strict, case-insensitive Bearer parsing.
 - `createSupabaseTokenVerifier(options)` for reusable JWT verification.
+- `createSupabaseMfaVerifier(options)` for server-side adaptive assurance.
 - `resolveLinkedUser(payload, options)` for subject-to-user lookup.
 - `provisionUser(payload, options)` and `synchronizeUser(payload, options)` for
   identity lifecycle handling.
@@ -247,15 +271,21 @@ enabled (the Payload default), logout also revokes the session ID server-side.
 - Keep Payload sessions enabled when server-side logout revocation is required.
 - Map authorization only from validated, server-controlled claims such as
   Supabase `app_metadata`.
+- Add `access.admin` to the auth collection; authentication alone must not make
+  every provisioned Supabase user a Payload administrator.
+- Direct credential changes and recovery to Supabase or the upstream account
+  system.
 - Do not log access tokens, exchange codes, cookies, or Authorization headers.
 
 For adoption and release operations, start with the
-[full integration guide](integration.md) and [publishing guide](publish.md).
+[full integration guide](docs/integration.md) and
+[publishing guide](docs/publish.md).
 See the [plain-language overview](docs/overview.md),
 [architecture](docs/architecture.md), [security](docs/security.md),
-[token-exchange design](docs/token-exchange.md), [test coverage](TESTS.md), and
-[agent/contributor guide](agents.md) for implementation details and current
-boundaries.
+[token-exchange design](docs/token-exchange.md),
+[test coverage](docs/testing.md), and [documentation index](docs/README.md) for
+implementation details and current boundaries. Contributor and agent operating
+rules are in [agents.md](agents.md).
 
 ## Development
 

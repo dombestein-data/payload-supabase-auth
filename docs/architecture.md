@@ -65,7 +65,8 @@ integrity error. Both conditions fail authentication at the strategy boundary.
 
 `src/users/provisionUser.ts` creates an unlinked user when `provisionUsers` is
 enabled. It requires an email, assigns the verified subject to the link field,
-uses access override, and generates an unknown random local password.
+uses access override, and creates no Payload password when the plugin's default
+Supabase-authoritative mode is active.
 
 `src/users/synchronizeUser.ts` updates only mapped fields whose values changed
 when `synchronizeUsers` is enabled. It protects the document ID, password,
@@ -113,10 +114,16 @@ caching and do not return the user document or token.
 
 When an `admin` block is supplied, the plugin appends the client component from
 the package's `./client` export to Payload's `beforeLogin` components. Existing
-admin components and Payload's local login form are preserved.
+admin components are preserved. Payload-local login and password recovery are
+disabled by default while auth fields, sessions, and logout remain available.
+The plugin explicitly installs Payload's exported JWT authentication function
+as `supabase-session`, because Payload otherwise removes its cookie strategy
+when the local credential strategy is disabled.
 
-The component sends credentials directly to Supabase, uses the returned access
-token only in memory to request a one-time exchange code, submits that code to
+The component sends credentials directly to Supabase and checks verified MFA
+factors. Users without a factor continue at AAL1; users with a verified TOTP or
+phone factor complete a challenge and receive an AAL2 token. It uses the token
+only in memory to request a one-time exchange code, submits that code to
 Payload, and reloads the safe same-site admin redirect after the HttpOnly
 session cookie is set. The publishable key and project URL come from immutable
 Payload configuration. Missing configuration produces both a server-console
@@ -133,6 +140,13 @@ sequenceDiagram
     Admin->>Login: Submit email and password
     Login->>Supabase: Password token request
     Supabase-->>Login: Access token
+    Login->>Supabase: Read verified MFA factors
+    alt verified factor enrolled and token is AAL1
+        Login->>Supabase: Challenge and verify factor
+        Supabase-->>Login: AAL2 access token
+    else no verified factor
+        Login->>Login: Continue at AAL1
+    end
     Login->>Issue: Bearer token
     Issue-->>Login: One-time code
     Login->>Exchange: One-time code
@@ -155,6 +169,7 @@ sequenceDiagram
     Strategy->>Strategy: Extract bearer token
     Strategy->>JWKS: Resolve signing key when needed
     Strategy->>Strategy: Verify JWT claims
+    Strategy->>Strategy: Enforce configured MFA assurance
     Strategy->>DB: Find user where supabaseUserId = sub
     alt linked user found
         DB-->>Strategy: Payload user

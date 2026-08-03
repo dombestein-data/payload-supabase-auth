@@ -1,5 +1,6 @@
 import type { SupabaseTokenVerifier } from './token/verifyToken.js'
 import type { ClaimMapper } from './users/claimMapping.js'
+import type { SupabaseMfaPolicy } from './token/verifyMfa.js'
 
 export type SupabaseAdminOptions = {
   /** Set false to omit the Supabase panel from Payload's admin login page. */
@@ -18,6 +19,14 @@ export type SupabaseAdminOptions = {
   description?: string
 }
 
+export type SupabaseMfaOptions = {
+  /** `if-enrolled` requires AAL2 only for users with a verified Supabase factor. */
+  policy?: SupabaseMfaPolicy
+
+  /** Browser-safe key used to query the authenticated user's enrolled factors. */
+  publishableKey?: string
+}
+
 export type PayloadSupabaseAuthOptions = {
   /** The Payload auth collection that will contain Supabase-linked users. */
   authCollection: string
@@ -27,6 +36,12 @@ export type PayloadSupabaseAuthOptions = {
 
   /** Opt-in Payload admin login UI backed by Supabase password authentication. */
   admin?: SupabaseAdminOptions
+
+  /** Server-side MFA assurance policy. Defaults to `if-enrolled` when admin UI is enabled. */
+  mfa?: SupabaseMfaOptions
+
+  /** Disable Payload password login and recovery. Defaults to true. */
+  disablePayloadLocalAuth?: boolean
 
   /** Overrides the default Supabase JWT issuer. */
   issuer?: string

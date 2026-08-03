@@ -43,6 +43,4 @@ notes.
 
 Use the repository's
 [full integration guide](https://github.com/dombestein-data/payload-supabase-auth/blob/main/docs/integration.md)
-for a production setup checklist and its
-[publishing guide](https://github.com/dombestein-data/payload-supabase-auth/blob/main/docs/publish.md)
-for public or private registry releases.
+for a production setup checklist.

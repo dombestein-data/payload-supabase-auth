@@ -51,7 +51,6 @@ payload-supabase-auth/
 │   ├── architecture.md              Detailed internal architecture
 │   ├── integration.md               Portable consumer implementation
 │   ├── overview.md                  This plain-language overview
-│   ├── publish.md                   Registry and release operations
 │   ├── security.md                  Trust boundaries and security rules
 │   ├── testing.md                   Test inventory and coverage boundaries
 │   ├── token-exchange.md            Exchange protocol design

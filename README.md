@@ -277,9 +277,8 @@ enabled (the Payload default), logout also revokes the session ID server-side.
   system.
 - Do not log access tokens, exchange codes, cookies, or Authorization headers.
 
-For adoption and release operations, start with the
-[full integration guide](docs/integration.md) and
-[publishing guide](docs/publish.md).
+For adoption guidance, start with the
+[full integration guide](docs/integration.md).
 See the [plain-language overview](docs/overview.md),
 [architecture](docs/architecture.md), [security](docs/security.md),
 [token-exchange design](docs/token-exchange.md),

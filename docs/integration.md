@@ -49,8 +49,7 @@ pnpm why payload react @dombestein-data/payload-supabase-auth
 
 Replace `pnpm why` with the equivalent package-manager command if necessary.
 
-For a private registry, configure registry authentication before installing;
-see [publish.md](publish.md#installing-a-private-package).
+For a private registry, configure registry authentication before installing.
 
 ## 3. Configure environment variables
 

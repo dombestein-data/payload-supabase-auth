@@ -228,7 +228,6 @@ Keep these documents aligned:
 - `README.md`: public overview and API reference.
 - `docs/README.md`: documentation index.
 - `docs/integration.md`: portable consumer implementation.
-- `docs/publish.md`: registry/release operations.
 - `docs/architecture.md`: internal composition and sequences.
 - `docs/security.md`: threats, invariants, and host responsibilities.
 - `docs/token-exchange.md`: exchange protocol details.
@@ -247,8 +246,7 @@ passing gates, artifact inspection, a correct Changeset version, and registry
 credentials configured outside the repository.
 
 The GitHub release workflow is manual (`workflow_dispatch`). Keep it manual
-unless the maintainer explicitly chooses another release policy. Follow
-`docs/publish.md` for public npm, private npm, or GitHub Packages.
+unless the maintainer explicitly chooses another release policy.
 
 Never publish from a dirty worktree or reuse a version number. Never change
 package visibility casually. Prefer npm trusted publishing when the workflow
